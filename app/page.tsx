@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   albums,
@@ -267,10 +268,10 @@ export default function Home() {
         </nav>
 
         <div className="sidebar-footer">
-          <button className="nav-item" type="button">
+          <Link className="nav-item nav-link" href="/settings">
             <span className="nav-icon">⚙</span>
             Settings
-          </button>
+          </Link>
 
           <div className="lidarr-status">
             <span className="status-dot" />
@@ -288,9 +289,13 @@ export default function Home() {
           <div className="brand-mark">C</div>
           <span>Composeerr</span>
 
-          <button type="button" aria-label="Open settings">
+          <Link
+            className="mobile-settings-link"
+            href="/settings"
+            aria-label="Open settings"
+          >
             ⚙
-          </button>
+          </Link>
         </header>
 
         <section className="hero">
