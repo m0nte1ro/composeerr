@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server";
 
+import {
+  getLidarrOptions,
+  getLidarrStatus,
+  LidarrRequestError,
+  normalizeLidarrUrl,
+} from "@/lib/server/lidarr-client";
+
+import { getLidarrSettings } from "@/lib/server/lidarr-settings";
+
+export const runtime = "nodejs";
+
 type TestConnectionRequest = {
   url?: string;
   apiKey?: string;
 };
-
-type LidarrSystemStatus = {
-  appName?: string;
-  instanceName?: string;
-  version?: string;
-  isDebug?: boolean;
-  isProduction?: boolean;
-  startupPath?: string;
-  appData?: string;
-  osName?: string;
-  osVersion?: string;
-};
-
-function normalizeBaseUrl(value: string) {
-  return value.trim().replace(/\/+$/, "");
-}
 
 export async function POST(request: Request) {
   let body: TestConnectionRequest;
@@ -38,8 +33,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const url = normalizeBaseUrl(body.url ?? "");
-  const apiKey = body.apiKey?.trim() ?? "";
+  const existing = getLidarrSettings();
+
+  const url = normalizeLidarrUrl(
+    body.url ?? existing?.url ?? "",
+  );
+
+  const apiKey =
+    body.apiKey?.trim() ||
+    existing?.apiKey ||
+    "";
 
   if (!url) {
     return NextResponse.json(
@@ -65,75 +68,16 @@ export async function POST(request: Request) {
     );
   }
 
-  let parsedUrl: URL;
-
   try {
-    parsedUrl = new URL(url);
-  } catch {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Lidarr URL is not valid.",
-      },
-      {
-        status: 400,
-      },
-    );
-  }
+    const connection = {
+      url,
+      apiKey,
+    };
 
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Lidarr URL must use HTTP or HTTPS.",
-      },
-      {
-        status: 400,
-      },
-    );
-  }
-
-  const statusUrl = `${url}/api/v1/system/status`;
-
-  try {
-    const response = await fetch(statusUrl, {
-      method: "GET",
-
-      headers: {
-        Accept: "application/json",
-        "X-Api-Key": apiKey,
-      },
-
-      cache: "no-store",
-
-      signal: AbortSignal.timeout(8000),
-    });
-
-    if (response.status === 401 || response.status === 403) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Lidarr rejected the API key.",
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Lidarr returned HTTP ${response.status}.`,
-        },
-        {
-          status: 502,
-        },
-      );
-    }
-
-    const status = (await response.json()) as LidarrSystemStatus;
+    const [status, options] = await Promise.all([
+      getLidarrStatus(connection),
+      getLidarrOptions(connection),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -142,25 +86,30 @@ export async function POST(request: Request) {
         appName: status.appName ?? "Lidarr",
         instanceName: status.instanceName ?? null,
         version: status.version ?? null,
-        osName: status.osName ?? null,
-        osVersion: status.osVersion ?? null,
       },
+
+      options,
     });
   } catch (error) {
-    const isTimeout =
-      error instanceof Error &&
-      (error.name === "TimeoutError" || error.name === "AbortError");
+    if (error instanceof LidarrRequestError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: error.message,
+        },
+        {
+          status: error.status ?? 502,
+        },
+      );
+    }
 
     return NextResponse.json(
       {
         ok: false,
-
-        error: isTimeout
-          ? "Timed out while connecting to Lidarr."
-          : "Could not connect to Lidarr.",
+        error: "Unexpected Lidarr connection error.",
       },
       {
-        status: 502,
+        status: 500,
       },
     );
   }
