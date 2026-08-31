@@ -18,6 +18,16 @@ export type Song = {
   albumIds: string[];
 };
 
+export type Artist = {
+  id: string;
+  name: string;
+  description: string;
+  formed?: number;
+  location?: string;
+  artworkClass: string;
+  albumIds: string[];
+};
+
 export const albums: Album[] = [
   {
     id: "ok-computer",
@@ -200,5 +210,29 @@ export const songs: Song[] = [
     duration: "3:35",
     firstRelease: 1969,
     albumIds: [],
+  },
+];
+
+export const artists: Artist[] = [
+  {
+    id: "radiohead",
+    name: "Radiohead",
+    description: "English alternative rock band.",
+    formed: 1985,
+    location: "Abingdon, Oxfordshire",
+    artworkClass: "artist-radiohead",
+    albumIds: ["ok-computer", "oknotok", "radiohead-best-of"],
+  },
+  {
+    id: "frank-sinatra",
+    name: "Frank Sinatra",
+    description: "American singer and actor.",
+    location: "Hoboken, New Jersey",
+    artworkClass: "artist-sinatra",
+    albumIds: [
+      "swing-1964",
+      "nothing-but-the-best",
+      "ultimate-sinatra",
+    ],
   },
 ];

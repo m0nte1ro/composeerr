@@ -1436,3 +1436,124 @@ select {
     padding-right: 20px;
   }
 }
+
+/* Album / artist search results */
+
+.result-artwork {
+  width: 48px;
+  height: 48px;
+
+  flex: 0 0 auto;
+
+  border-radius: 9px;
+
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.22);
+}
+
+.artist-result-artwork {
+  width: 48px;
+  height: 48px;
+
+  flex: 0 0 auto;
+
+  border-radius: 999px;
+
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.24);
+}
+
+/* Artist */
+
+.artist-hero {
+  width: 180px;
+  height: 180px;
+
+  margin: 0 auto 28px;
+
+  border-radius: 999px;
+
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+}
+
+.artist-radiohead {
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(220, 220, 220, 0.8) 0 16%,
+      transparent 17%
+    ),
+    linear-gradient(145deg, #20252a, #85898d);
+}
+
+.artist-sinatra {
+  background:
+    radial-gradient(
+      circle at 50% 34%,
+      #d1cbc2 0 16%,
+      transparent 17%
+    ),
+    linear-gradient(145deg, #15191f, #435668 62%, #aaa091);
+}
+
+.artist-metadata {
+  margin-top: 18px;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.artist-metadata span {
+  padding: 7px 9px;
+
+  border: 1px solid var(--border);
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.025);
+
+  color: var(--foreground-muted);
+
+  font-size: 10px;
+}
+
+.artist-tabs {
+  margin-bottom: 16px;
+
+  padding: 4px;
+
+  display: flex;
+  gap: 4px;
+
+  border: 1px solid var(--border);
+  border-radius: 11px;
+
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.artist-tab {
+  height: 34px;
+
+  flex: 1;
+
+  border: 0;
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: var(--foreground-subtle);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.artist-tab:hover {
+  color: white;
+}
+
+.artist-tab-active {
+  background: rgba(255, 255, 255, 0.075);
+  color: white;
+}
