@@ -1,6 +1,9 @@
 import type {
+  MetadataAlbumDetails,
   MetadataAlbumResult,
+  MetadataArtistDetails,
   MetadataArtistResult,
+  MetadataSongDetails,
   MetadataSongResult,
 } from "@/lib/metadata/types";
 
@@ -22,4 +25,16 @@ export interface MusicMetadataProvider {
     query: string,
     limit?: number,
   ): Promise<MetadataSongResult[]>;
+
+  getArtist(
+    id: string,
+  ): Promise<MetadataArtistDetails>;
+
+  getAlbum(
+    id: string,
+  ): Promise<MetadataAlbumDetails>;
+
+  getSong(
+    id: string,
+  ): Promise<MetadataSongDetails>;
 }

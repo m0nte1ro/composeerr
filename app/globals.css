@@ -2165,3 +2165,53 @@ select {
   background: #71717a;
   box-shadow: none;
 }
+
+.metadata-result-artwork,
+.metadata-artist-artwork,
+.metadata-album-hero,
+.metadata-artist-hero {
+  display: grid;
+  place-items: center;
+
+  background:
+    radial-gradient(
+      circle at 30% 20%,
+      rgba(255, 255, 255, 0.16),
+      transparent 35%
+    ),
+    linear-gradient(
+      145deg,
+      #292831,
+      #151519
+    );
+
+  color: rgba(255, 255, 255, 0.8);
+
+  font-weight: 800;
+}
+
+.metadata-result-artwork {
+  font-size: 18px;
+}
+
+.metadata-artist-artwork {
+  font-size: 18px;
+}
+
+.metadata-artist-hero {
+  font-size: 58px;
+}
+
+.metadata-album-hero {
+  font-size: 72px;
+}
+
+.track-duration {
+  margin-left: auto;
+
+  color: var(--foreground-subtle);
+
+  font-size: 10px;
+
+  font-variant-numeric: tabular-nums;
+}

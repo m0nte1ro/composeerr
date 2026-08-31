@@ -1,18 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import {
-  albums,
-  artists,
-  songs,
-  type Album,
-  type Artist,
-  type Song,
-} from "@/lib/mock-music";
 
-type SearchType = "song" | "album" | "artist";
-type ArtistSection = "albums" | "compilations" | "other";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import type {
+  MetadataAlbumDetails,
+  MetadataAlbumResult,
+  MetadataArtistDetails,
+  MetadataArtistResult,
+  MetadataSearchResult,
+  MetadataSearchType,
+  MetadataSongDetails,
+  MetadataSongResult,
+} from "@/lib/metadata/types";
+
+type ArtistSection =
+  | "albums"
+  | "compilations"
+  | "live"
+  | "singles";
 
 type LibraryAlbum = {
   lidarrId: number;
@@ -27,7 +39,10 @@ type LibraryAlbum = {
 
   monitored: boolean;
 
-  status: "tracked" | "partial" | "available";
+  status:
+    | "tracked"
+    | "partial"
+    | "available";
 
   trackFileCount: number;
   trackCount: number;
@@ -35,7 +50,10 @@ type LibraryAlbum = {
 };
 
 type LibraryState = {
-  status: "loading" | "ready" | "error";
+  status:
+    | "loading"
+    | "ready"
+    | "error";
 
   albums: LibraryAlbum[];
 
@@ -48,145 +66,283 @@ type LibraryState = {
   artistCount: number;
 };
 
-function normalize(value: string) {
-  return value.trim().toLowerCase();
+type SearchState =
+  | {
+      status: "idle";
+      results: MetadataSearchResult[];
+    }
+  | {
+      status: "loading";
+      results: MetadataSearchResult[];
+    }
+  | {
+      status: "ready";
+      results: MetadataSearchResult[];
+    }
+  | {
+      status: "error";
+      results: MetadataSearchResult[];
+      message: string;
+    };
+
+type DrawerMode =
+  | "song"
+  | "album"
+  | "artist"
+  | null;
+
+function formatDuration(
+  milliseconds: number | null,
+) {
+  if (!milliseconds) {
+    return "—";
+  }
+
+  const totalSeconds =
+    Math.round(
+      milliseconds / 1000,
+    );
+
+  const minutes =
+    Math.floor(
+      totalSeconds / 60,
+    );
+
+  const seconds =
+    totalSeconds % 60;
+
+  return `${minutes}:${String(
+    seconds,
+  ).padStart(2, "0")}`;
 }
 
-function scoreText(value: string, query: string) {
-  const text = normalize(value);
-  const search = normalize(query);
+function albumTypeLabel(
+  album: MetadataAlbumResult,
+) {
+  if (
+    album.secondaryTypes.length
+  ) {
+    return album.secondaryTypes.join(
+      " · ",
+    );
+  }
 
-  if (!search) return 0;
-
-  if (text === search) return 1000;
-  if (text.startsWith(search)) return 800;
-  if (text.includes(search)) return 600;
-
-  return 0;
-}
-
-function scoreSong(song: Song, query: string) {
-  return Math.max(
-    scoreText(song.title, query),
-    scoreText(song.artist, query) * 0.4,
+  return (
+    album.primaryType ??
+    "Release"
   );
-}
-
-function scoreAlbum(album: Album, query: string) {
-  return Math.max(
-    scoreText(album.title, query),
-    scoreText(album.artist, query) * 0.4,
-  );
-}
-
-function scoreArtist(artist: Artist, query: string) {
-  return scoreText(artist.name, query);
 }
 
 export default function Home() {
-  const [searchType, setSearchType] = useState<SearchType>("song");
-  const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [
+    searchType,
+    setSearchType,
+  ] =
+    useState<MetadataSearchType>(
+      "song",
+    );
 
-  const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
-  const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
+  const [
+    query,
+    setQuery,
+  ] = useState("");
 
-  const [library, setLibrary] = useState<LibraryState>({
-  status: "loading",
+  const [
+    submittedQuery,
+    setSubmittedQuery,
+  ] = useState("");
 
-  albums: [],
+  const [
+    searchState,
+    setSearchState,
+  ] = useState<SearchState>({
+    status: "idle",
+    results: [],
+  });
 
-  knownAlbumCount: 0,
-  monitoredAlbumCount: 0,
+  const [
+    library,
+    setLibrary,
+  ] = useState<LibraryState>({
+    status: "loading",
 
-  albumCount: 0,
-  trackFileCount: 0,
+    albums: [],
 
-  artistCount: 0,
-});
+    knownAlbumCount: 0,
+    monitoredAlbumCount: 0,
 
-  const [artistSection, setArtistSection] =
-    useState<ArtistSection>("albums");
+    albumCount: 0,
+    trackFileCount: 0,
 
-  const [requestedAlbumIds, setRequestedAlbumIds] = useState<Set<string>>(
+    artistCount: 0,
+  });
+
+  const [
+    drawerMode,
+    setDrawerMode,
+  ] =
+    useState<DrawerMode>(null);
+
+  const [
+    drawerLoading,
+    setDrawerLoading,
+  ] = useState(false);
+
+  const [
+    drawerError,
+    setDrawerError,
+  ] =
+    useState<string | null>(null);
+
+  const [
+    selectedSong,
+    setSelectedSong,
+  ] =
+    useState<MetadataSongDetails | null>(
+      null,
+    );
+
+  const [
+    selectedAlbum,
+    setSelectedAlbum,
+  ] =
+    useState<MetadataAlbumDetails | null>(
+      null,
+    );
+
+  const [
+    selectedArtist,
+    setSelectedArtist,
+  ] =
+    useState<MetadataArtistDetails | null>(
+      null,
+    );
+
+  const [
+    artistSection,
+    setArtistSection,
+  ] =
+    useState<ArtistSection>(
+      "albums",
+    );
+
+  const [
+    requestedAlbumIds,
+    setRequestedAlbumIds,
+  ] = useState<Set<string>>(
     new Set(),
   );
 
-  const [requestingAlbumId, setRequestingAlbumId] =
+  const [
+    requestingAlbumId,
+    setRequestingAlbumId,
+  ] =
     useState<string | null>(null);
 
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchRef =
+    useRef<HTMLInputElement>(
+      null,
+    );
 
   function closeDrawer() {
-    setSelectedAlbum(null);
+    setDrawerMode(null);
+
+    setDrawerLoading(false);
+    setDrawerError(null);
+
     setSelectedSong(null);
+    setSelectedAlbum(null);
     setSelectedArtist(null);
   }
 
   useEffect(() => {
-    function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+    function handleShortcut(
+      event: KeyboardEvent,
+    ) {
+      if (
+        (
+          event.metaKey ||
+          event.ctrlKey
+        ) &&
+        event.key.toLowerCase() ===
+          "k"
+      ) {
         event.preventDefault();
+
         searchRef.current?.focus();
       }
 
-      if (event.key === "Escape") {
+      if (
+        event.key === "Escape"
+      ) {
         closeDrawer();
       }
     }
 
-    window.addEventListener("keydown", handleShortcut);
+    window.addEventListener(
+      "keydown",
+      handleShortcut,
+    );
 
-    return () => window.removeEventListener("keydown", handleShortcut);
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        handleShortcut,
+      );
   }, []);
 
   useEffect(() => {
     async function loadLibrary() {
       try {
-        const response = await fetch("/api/lidarr/library", {
-          cache: "no-store",
-        });
+        const response =
+          await fetch(
+            "/api/lidarr/library",
+            {
+              cache: "no-store",
+            },
+          );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        if (!response.ok || !data.ok || !data.library) {
-          setLibrary({
-            status: "error",
-
-            albums: [],
-
-            knownAlbumCount: 0,
-            monitoredAlbumCount: 0,
-
-            albumCount: 0,
-            trackFileCount: 0,
-
-            artistCount: 0,
-          });
-
-          return;
+        if (
+          !response.ok ||
+          !data.ok ||
+          !data.library
+        ) {
+          throw new Error();
         }
 
         setLibrary({
           status: "ready",
 
-          albums: data.library.albums,
+          albums:
+            data.library.albums,
 
           knownAlbumCount:
-            data.library.knownAlbumCount,
+            data.library
+              .knownAlbumCount ??
+            0,
 
           monitoredAlbumCount:
-            data.library.monitoredAlbumCount,
+            data.library
+              .monitoredAlbumCount ??
+            0,
 
           albumCount:
-            data.library.albumCount,
+            data.library
+              .albumCount ??
+            0,
 
           trackFileCount:
-            data.library.trackFileCount,
+            data.library
+              .trackFileCount ??
+            0,
 
           artistCount:
-            data.library.artistCount,
+            data.library
+              .artistCount ??
+            0,
         });
       } catch {
         setLibrary({
@@ -208,247 +364,517 @@ export default function Home() {
     void loadLibrary();
   }, []);
 
-  const songResults = useMemo(() => {
-    if (!submittedQuery || searchType !== "song") return [];
+  async function handleSubmit(
+    event:
+      FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
 
-    return songs
-      .map((song) => ({
-        item: song,
-        score: scoreSong(song, submittedQuery),
-      }))
-      .filter((result) => result.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((result) => result.item);
-  }, [submittedQuery, searchType]);
+    const trimmed =
+      query.trim();
 
-  const albumResults = useMemo(() => {
-    if (!submittedQuery || searchType !== "album") return [];
+    if (!trimmed) {
+      searchRef.current?.focus();
 
-    return albums
-      .map((album) => ({
-        item: album,
-        score: scoreAlbum(album, submittedQuery),
-      }))
-      .filter((result) => result.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((result) => result.item);
-  }, [submittedQuery, searchType]);
-
-  const artistResults = useMemo(() => {
-    if (!submittedQuery || searchType !== "artist") return [];
-
-    return artists
-      .map((artist) => ({
-        item: artist,
-        score: scoreArtist(artist, submittedQuery),
-      }))
-      .filter((result) => result.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map((result) => result.item);
-  }, [submittedQuery, searchType]);
-
-  const appearsOnAlbums =
-    selectedSong?.albumIds
-      .map((albumId) => albums.find((album) => album.id === albumId))
-      .filter((album): album is Album => Boolean(album)) ?? [];
-
-  const artistAlbums =
-    selectedArtist?.albumIds
-      .map((albumId) => albums.find((album) => album.id === albumId))
-      .filter((album): album is Album => Boolean(album)) ?? [];
-
-  const filteredArtistAlbums = artistAlbums.filter((album) => {
-    if (artistSection === "albums") {
-      return album.type === "Original Album";
+      return;
     }
 
-    if (artistSection === "compilations") {
-      return album.type === "Compilation";
+    closeDrawer();
+
+    setSubmittedQuery(trimmed);
+
+    setSearchState({
+      status: "loading",
+      results: [],
+    });
+
+    try {
+      const params =
+        new URLSearchParams({
+          type: searchType,
+          q: trimmed,
+        });
+
+      const response =
+        await fetch(
+          `/api/metadata/search?${params}`,
+          {
+            cache: "no-store",
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+        setSearchState({
+          status: "error",
+          results: [],
+          message:
+            data.error ??
+            "Search failed.",
+        });
+
+        return;
+      }
+
+      setSearchState({
+        status: "ready",
+        results:
+          data.results ?? [],
+      });
+    } catch {
+      setSearchState({
+        status: "error",
+        results: [],
+        message:
+          "Could not search metadata.",
+      });
+    }
+  }
+
+  async function loadDetails(
+    type: MetadataSearchType,
+    id: string,
+  ) {
+    const params =
+      new URLSearchParams({
+        type,
+        id,
+      });
+
+    const response =
+      await fetch(
+        `/api/metadata/details?${params}`,
+        {
+          cache: "no-store",
+        },
+      );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !data.ok
+    ) {
+      throw new Error(
+        data.error ??
+        "Could not load details.",
+      );
     }
 
-    return album.type !== "Original Album" && album.type !== "Compilation";
-  });
+    return data.details;
+  }
 
-  function findLibraryAlbum(album: Album): LibraryAlbum | null {
+  async function openSong(
+    song: MetadataSongResult,
+  ) {
+    setDrawerMode("song");
+    setDrawerLoading(true);
+    setDrawerError(null);
+
+    setSelectedSong(null);
+    setSelectedAlbum(null);
+    setSelectedArtist(null);
+
+    try {
+      const details =
+        (await loadDetails(
+          "song",
+          song.id,
+        )) as MetadataSongDetails;
+
+      setSelectedSong(details);
+    } catch (error) {
+      setDrawerError(
+        error instanceof Error
+          ? error.message
+          : "Could not load song.",
+      );
+    } finally {
+      setDrawerLoading(false);
+    }
+  }
+
+  async function openArtist(
+    artist: MetadataArtistResult,
+  ) {
+    setDrawerMode("artist");
+    setDrawerLoading(true);
+    setDrawerError(null);
+
+    setSelectedSong(null);
+    setSelectedAlbum(null);
+    setSelectedArtist(null);
+
+    setArtistSection(
+      "albums",
+    );
+
+    try {
+      const details =
+        (await loadDetails(
+          "artist",
+          artist.id,
+        )) as MetadataArtistDetails;
+
+      setSelectedArtist(
+        details,
+      );
+    } catch (error) {
+      setDrawerError(
+        error instanceof Error
+          ? error.message
+          : "Could not load artist.",
+      );
+    } finally {
+      setDrawerLoading(false);
+    }
+  }
+
+  async function openAlbum(
+    album: MetadataAlbumResult,
+    preserveParent = true,
+  ) {
+    if (!preserveParent) {
+      setSelectedSong(null);
+      setSelectedArtist(null);
+    }
+
+    setSelectedAlbum(null);
+
+    setDrawerMode("album");
+    setDrawerLoading(true);
+    setDrawerError(null);
+
+    try {
+      const details =
+        (await loadDetails(
+          "album",
+          album.id,
+        )) as MetadataAlbumDetails;
+
+      setSelectedAlbum(
+        details,
+      );
+    } catch (error) {
+      setDrawerError(
+        error instanceof Error
+          ? error.message
+          : "Could not load album.",
+      );
+    } finally {
+      setDrawerLoading(false);
+    }
+  }
+
+  function goBack() {
+    if (
+      drawerMode === "album"
+    ) {
+      setSelectedAlbum(null);
+
+      if (selectedSong) {
+        setDrawerMode("song");
+
+        return;
+      }
+
+      if (selectedArtist) {
+        setDrawerMode(
+          "artist",
+        );
+
+        return;
+      }
+    }
+
+    closeDrawer();
+  }
+
+  function findLibraryAlbum(
+    album: MetadataAlbumResult,
+  ) {
+    const id =
+      album.id.toLowerCase();
+
     return (
-      library.albums.find((candidate) => {
-        const sameTitle =
-          normalize(candidate.title) === normalize(album.title);
-
-        const sameArtist =
-          normalize(candidate.artist) === normalize(album.artist);
-
-        const compatibleYear =
-          candidate.year === null || candidate.year === album.year;
-
-        return sameTitle && sameArtist && compatibleYear;
-      }) ?? null
+      library.albums.find(
+        (candidate) =>
+          candidate
+            .musicBrainzReleaseGroupId
+            ?.toLowerCase() ===
+          id,
+      ) ?? null
     );
   }
 
-  function isAlbumInLidarr(album: Album) {
-    return Boolean(findLibraryAlbum(album));
+  function isAlbumInLidarr(
+    album: MetadataAlbumResult,
+  ) {
+    return Boolean(
+      findLibraryAlbum(album),
+    );
   }
 
-  function getLibraryStatusLabel(album: Album) {
-    const libraryAlbum = findLibraryAlbum(album);
+  function getLibraryStatusLabel(
+    album: MetadataAlbumResult,
+  ) {
+    const libraryAlbum =
+      findLibraryAlbum(album);
 
     if (!libraryAlbum) {
       return null;
     }
 
-    if (libraryAlbum.status === "available") {
+    if (
+      libraryAlbum.status ===
+      "available"
+    ) {
       return "Available";
     }
 
-    if (libraryAlbum.status === "partial") {
+    if (
+      libraryAlbum.status ===
+      "partial"
+    ) {
       return `${libraryAlbum.trackFileCount}/${libraryAlbum.trackCount} tracks`;
     }
 
     return "In Lidarr";
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const trimmedQuery = query.trim();
-
-    if (!trimmedQuery) {
-      searchRef.current?.focus();
-      return;
-    }
-
-    setSubmittedQuery(trimmedQuery);
-    closeDrawer();
-  }
-
-  function openSong(song: Song) {
-    setSelectedSong(song);
-    setSelectedAlbum(null);
-    setSelectedArtist(null);
-  }
-
-  function openArtist(artist: Artist) {
-    setSelectedArtist(artist);
-    setSelectedSong(null);
-    setSelectedAlbum(null);
-    setArtistSection("albums");
-  }
-
-  function openAlbum(album: Album, preserveParent = true) {
-    if (!preserveParent) {
-      setSelectedSong(null);
-      setSelectedArtist(null);
-    }
-
-    setSelectedAlbum(album);
-  }
-
-  function goBack() {
-    if (selectedAlbum) {
-      if (selectedSong || selectedArtist) {
-        setSelectedAlbum(null);
-        return;
-      }
-
-      closeDrawer();
-      return;
-    }
-
-    closeDrawer();
-  }
-
-  function requestAlbum(album: Album) {
+  function requestAlbum(
+    album: MetadataAlbumResult,
+  ) {
     if (
       isAlbumInLidarr(album) ||
-      requestedAlbumIds.has(album.id)
+      requestedAlbumIds.has(
+        album.id,
+      )
     ) {
       return;
     }
 
-    setRequestingAlbumId(album.id);
+    setRequestingAlbumId(
+      album.id,
+    );
 
+    // Still simulated.
+    // Real Lidarr request is the next step.
     window.setTimeout(() => {
-      setRequestedAlbumIds((current) => {
-        const next = new Set(current);
-        next.add(album.id);
-        return next;
-      });
+      setRequestedAlbumIds(
+        (current) => {
+          const next =
+            new Set(current);
 
-      setRequestingAlbumId(null);
+          next.add(
+            album.id,
+          );
+
+          return next;
+        },
+      );
+
+      setRequestingAlbumId(
+        null,
+      );
     }, 850);
   }
 
-  const drawerOpen = Boolean(
-    selectedSong || selectedAlbum || selectedArtist,
-  );
+  const songResults =
+    searchState.results.filter(
+      (
+        result,
+      ): result is MetadataSongResult =>
+        result.kind === "song",
+    );
+
+  const albumResults =
+    searchState.results.filter(
+      (
+        result,
+      ): result is MetadataAlbumResult =>
+        result.kind === "album",
+    );
+
+  const artistResults =
+    searchState.results.filter(
+      (
+        result,
+      ): result is MetadataArtistResult =>
+        result.kind === "artist",
+    );
+
+  const artistAlbums =
+    selectedArtist?.discography ??
+    [];
+
+  const filteredArtistAlbums =
+    artistAlbums.filter(
+      (album) => {
+        const secondary =
+          album.secondaryTypes.map(
+            (value) =>
+              value.toLowerCase(),
+          );
+
+        const primary =
+          album.primaryType
+            ?.toLowerCase() ??
+          "";
+
+        if (
+          artistSection ===
+          "compilations"
+        ) {
+          return secondary.includes(
+            "compilation",
+          );
+        }
+
+        if (
+          artistSection ===
+          "live"
+        ) {
+          return secondary.includes(
+            "live",
+          );
+        }
+
+        if (
+          artistSection ===
+          "singles"
+        ) {
+          return (
+            primary ===
+              "single" ||
+            primary === "ep"
+          );
+        }
+
+        return (
+          primary === "album" &&
+          !secondary.includes(
+            "compilation",
+          ) &&
+          !secondary.includes(
+            "live",
+          )
+        );
+      },
+    );
 
   const currentResultCount =
-    searchType === "song"
-      ? songResults.length
-      : searchType === "album"
-        ? albumResults.length
-        : artistResults.length;
+    searchState.results.length;
+
+  const drawerOpen =
+    drawerMode !== null;
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark">C</div>
+          <div className="brand-mark">
+            C
+          </div>
 
           <div>
-            <div className="brand-name">Composeerr</div>
-            <div className="brand-subtitle">Music requests</div>
+            <div className="brand-name">
+              Composeerr
+            </div>
+
+            <div className="brand-subtitle">
+              Music requests
+            </div>
           </div>
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item nav-item-active" type="button">
-            <span className="nav-icon">⌂</span>
+          <button
+            className="nav-item nav-item-active"
+            type="button"
+          >
+            <span className="nav-icon">
+              ⌂
+            </span>
             Discover
           </button>
 
-          <button className="nav-item" type="button">
-            <span className="nav-icon">⌕</span>
+          <button
+            className="nav-item"
+            type="button"
+          >
+            <span className="nav-icon">
+              ⌕
+            </span>
             Search
           </button>
 
-          <button className="nav-item" type="button">
-            <span className="nav-icon">♫</span>
+          <button
+            className="nav-item"
+            type="button"
+          >
+            <span className="nav-icon">
+              ♫
+            </span>
             Library
           </button>
 
-          <button className="nav-item" type="button">
-            <span className="nav-icon">↻</span>
+          <button
+            className="nav-item"
+            type="button"
+          >
+            <span className="nav-icon">
+              ↻
+            </span>
             Activity
           </button>
         </nav>
 
         <div className="sidebar-footer">
-          <Link className="nav-item nav-link" href="/settings">
-            <span className="nav-icon">⚙</span>
+          <Link
+            className="nav-item nav-link"
+            href="/settings"
+          >
+            <span className="nav-icon">
+              ⚙
+            </span>
+
             Settings
           </Link>
 
           <div className="lidarr-status">
             <span
               className={
-                library.status === "ready"
+                library.status ===
+                "ready"
                   ? "status-dot"
                   : "status-dot status-dot-offline"
               }
             />
 
             <div>
-              <strong>Lidarr</strong>
+              <strong>
+                Lidarr
+              </strong>
 
               <span>
-                {library.status === "loading" && "Syncing library..."}
+                {library.status ===
+                  "loading" &&
+                  "Syncing library..."}
 
-                {library.status === "ready" &&
+                {library.status ===
+                  "ready" &&
                   `${library.albumCount} albums · ${library.trackFileCount} tracks`}
 
-                {library.status === "error" && "Unavailable"}
+                {library.status ===
+                  "error" &&
+                  "Unavailable"}
               </span>
             </div>
           </div>
@@ -457,8 +883,13 @@ export default function Home() {
 
       <main className="main-content">
         <header className="mobile-header">
-          <div className="brand-mark">C</div>
-          <span>Composeerr</span>
+          <div className="brand-mark">
+            C
+          </div>
+
+          <span>
+            Composeerr
+          </span>
 
           <Link
             className="mobile-settings-link"
@@ -471,51 +902,111 @@ export default function Home() {
 
         <section className="hero">
           <div className="hero-eyebrow">
-            Your music, without the admin
+            Your music, without
+            the admin
           </div>
 
-          <h1>Find it. Pick the album. Request it.</h1>
+          <h1>
+            Find it. Pick the
+            album. Request it.
+          </h1>
 
           <p>
-            Search for a song, album or artist. Composeerr handles the messy
-            part between you and Lidarr.
+            Search for a song,
+            album or artist.
+            Composeerr handles
+            the messy part
+            between you and
+            Lidarr.
           </p>
 
-          <form className="search-form" onSubmit={handleSubmit}>
+          <form
+            className="search-form"
+            onSubmit={
+              handleSubmit
+            }
+          >
             <div className="search-control">
-              <span className="search-icon">⌕</span>
+              <span className="search-icon">
+                ⌕
+              </span>
 
               <input
                 ref={searchRef}
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(
+                  event,
+                ) =>
+                  setQuery(
+                    event.target
+                      .value,
+                  )
+                }
                 placeholder={
-                  searchType === "song"
+                  searchType ===
+                  "song"
                     ? "Search for a song..."
-                    : searchType === "album"
+                    : searchType ===
+                        "album"
                       ? "Search for an album..."
                       : "Search for an artist..."
                 }
               />
 
-              <span className="keyboard-hint">⌘K</span>
+              <span className="keyboard-hint">
+                ⌘K
+              </span>
             </div>
 
             <select
               className="search-type"
-              value={searchType}
-              onChange={(event) => {
-                setSearchType(event.target.value as SearchType);
-                setSubmittedQuery("");
+              value={
+                searchType
+              }
+              onChange={(
+                event,
+              ) => {
+                setSearchType(
+                  event.target
+                    .value as MetadataSearchType,
+                );
+
+                setSubmittedQuery(
+                  "",
+                );
+
+                setSearchState({
+                  status:
+                    "idle",
+                  results: [],
+                });
               }}
             >
-              <option value="song">Song</option>
-              <option value="album">Album</option>
-              <option value="artist">Artist</option>
+              <option value="song">
+                Song
+              </option>
+
+              <option value="album">
+                Album
+              </option>
+
+              <option value="artist">
+                Artist
+              </option>
             </select>
 
-            <button className="search-button" type="submit">
-              Search
+            <button
+              className="search-button"
+              type="submit"
+              disabled={
+                searchState.status ===
+                "loading"
+              }
+            >
+              {searchState.status ===
+              "loading"
+                ? "Searching..."
+                : "Search"}
             </button>
           </form>
         </section>
@@ -524,100 +1015,208 @@ export default function Home() {
           <section className="content-section search-results-section">
             <div className="section-header">
               <div>
-                <h2>Search results</h2>
+                <h2>
+                  Search results
+                </h2>
 
                 <p>
-                  {searchType === "song" && "Songs"}
-                  {searchType === "album" && "Albums"}
-                  {searchType === "artist" && "Artists"} matching{" "}
+                  Real MusicBrainz
+                  results matching
+                  {" "}
                   “{submittedQuery}”
                 </p>
               </div>
 
-              <span className="result-count">
-                {currentResultCount} result
-                {currentResultCount === 1 ? "" : "s"}
-              </span>
+              {searchState.status ===
+                "ready" && (
+                <span className="result-count">
+                  {
+                    currentResultCount
+                  }{" "}
+                  result
+                  {currentResultCount ===
+                  1
+                    ? ""
+                    : "s"}
+                </span>
+              )}
             </div>
 
-            {searchType === "song" && (
-              <>
-                {songResults.length === 0 ? (
-                  <div className="empty-state">
-                    <strong>No songs found.</strong>
-                    <span>
-                      Try “Let Down” or “Fly Me to the Moon”.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="song-results">
-                    {songResults.map((song) => (
+            {searchState.status ===
+              "loading" && (
+              <div className="empty-state">
+                <strong>
+                  Searching MusicBrainz…
+                </strong>
+
+                <span>
+                  Public API mode
+                  respects the global
+                  rate limit.
+                </span>
+              </div>
+            )}
+
+            {searchState.status ===
+              "error" && (
+              <div className="empty-state">
+                <strong>
+                  Search failed.
+                </strong>
+
+                <span>
+                  {
+                    searchState.message
+                  }
+                </span>
+              </div>
+            )}
+
+            {searchState.status ===
+              "ready" &&
+              currentResultCount ===
+                0 && (
+                <div className="empty-state">
+                  <strong>
+                    Nothing found.
+                  </strong>
+
+                  <span>
+                    Try another
+                    search.
+                  </span>
+                </div>
+              )}
+
+            {searchState.status ===
+              "ready" &&
+              searchType ===
+                "song" && (
+                <div className="song-results">
+                  {songResults.map(
+                    (song) => (
                       <button
                         className="song-result"
                         type="button"
-                        key={song.id}
-                        onClick={() => openSong(song)}
+                        key={
+                          song.id
+                        }
+                        onClick={() =>
+                          void openSong(
+                            song,
+                          )
+                        }
                       >
-                        <div className="song-result-icon">♪</div>
+                        <div className="song-result-icon">
+                          ♪
+                        </div>
 
                         <div className="song-result-copy">
-                          <strong>{song.title}</strong>
+                          <strong>
+                            {
+                              song.title
+                            }
+                          </strong>
 
                           <span>
-                            {song.artist} · {song.firstRelease}
+                            {
+                              song.artist
+                            }
+
+                            {song.firstReleaseYear
+                              ? ` · ${song.firstReleaseYear}`
+                              : ""}
+
+                            {song.disambiguation
+                              ? ` · ${song.disambiguation}`
+                              : ""}
                           </span>
                         </div>
 
                         <span className="song-duration">
-                          {song.duration}
+                          {formatDuration(
+                            song.durationMs,
+                          )}
                         </span>
 
-                        <span className="result-chevron">›</span>
+                        <span className="result-chevron">
+                          ›
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+                    ),
+                  )}
+                </div>
+              )}
 
-            {searchType === "album" && (
-              <>
-                {albumResults.length === 0 ? (
-                  <div className="empty-state">
-                    <strong>No albums found.</strong>
-                    <span>
-                      Try “OK Computer” or “Nothing but the Best”.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="song-results">
-                    {albumResults.map((album) => {
-                      const requested = requestedAlbumIds.has(album.id);
-                      const libraryStatus = getLibraryStatusLabel(album);
+            {searchState.status ===
+              "ready" &&
+              searchType ===
+                "album" && (
+                <div className="song-results">
+                  {albumResults.map(
+                    (album) => {
+                      const requested =
+                        requestedAlbumIds.has(
+                          album.id,
+                        );
 
                       return (
                         <button
                           className="song-result"
                           type="button"
-                          key={album.id}
-                          onClick={() => openAlbum(album, false)}
+                          key={
+                            album.id
+                          }
+                          onClick={() =>
+                            void openAlbum(
+                              album,
+                              false,
+                            )
+                          }
                         >
-                          <div
-                            className={`result-artwork ${album.artworkClass}`}
-                          />
+                          <div className="result-artwork metadata-result-artwork">
+                            {album.title
+                              .charAt(
+                                0,
+                              )
+                              .toUpperCase()}
+                          </div>
 
                           <div className="song-result-copy">
-                            <strong>{album.title}</strong>
+                            <strong>
+                              {
+                                album.title
+                              }
+                            </strong>
 
                             <span>
-                              {album.artist} · {album.year} · {album.type}
+                              {
+                                album.artist
+                              }
+
+                              {album.year
+                                ? ` · ${album.year}`
+                                : ""}
+
+                              {" · "}
+
+                              {albumTypeLabel(
+                                album,
+                              )}
                             </span>
                           </div>
 
-                          {isAlbumInLidarr(album) ? (
+                          {isAlbumInLidarr(
+                            album,
+                          ) ? (
                             <span
                               className="library-badge"
-                              title={libraryStatus ?? "In Lidarr"}
+                              title={
+                                getLibraryStatusLabel(
+                                  album,
+                                ) ??
+                                "In Lidarr"
+                              }
                             >
                               ✓
                             </span>
@@ -626,49 +1225,75 @@ export default function Home() {
                               Requested
                             </span>
                           ) : (
-                            <span className="result-chevron">›</span>
+                            <span className="result-chevron">
+                              ›
+                            </span>
                           )}
                         </button>
                       );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
+                    },
+                  )}
+                </div>
+              )}
 
-            {searchType === "artist" && (
-              <>
-                {artistResults.length === 0 ? (
-                  <div className="empty-state">
-                    <strong>No artists found.</strong>
-                    <span>Try “Radiohead” or “Frank Sinatra”.</span>
-                  </div>
-                ) : (
-                  <div className="song-results">
-                    {artistResults.map((artist) => (
+            {searchState.status ===
+              "ready" &&
+              searchType ===
+                "artist" && (
+                <div className="song-results">
+                  {artistResults.map(
+                    (artist) => (
                       <button
                         className="song-result"
                         type="button"
-                        key={artist.id}
-                        onClick={() => openArtist(artist)}
+                        key={
+                          artist.id
+                        }
+                        onClick={() =>
+                          void openArtist(
+                            artist,
+                          )
+                        }
                       >
-                        <div
-                          className={`artist-result-artwork ${artist.artworkClass}`}
-                        />
-
-                        <div className="song-result-copy">
-                          <strong>{artist.name}</strong>
-
-                          <span>{artist.description}</span>
+                        <div className="artist-result-artwork metadata-artist-artwork">
+                          {artist.name
+                            .charAt(
+                              0,
+                            )
+                            .toUpperCase()}
                         </div>
 
-                        <span className="result-chevron">›</span>
+                        <div className="song-result-copy">
+                          <strong>
+                            {
+                              artist.name
+                            }
+                          </strong>
+
+                          <span>
+                            {[
+                              artist.type,
+                              artist.area,
+                              artist.country,
+                              artist.disambiguation,
+                            ]
+                              .filter(
+                                Boolean,
+                              )
+                              .join(
+                                " · ",
+                              )}
+                          </span>
+                        </div>
+
+                        <span className="result-chevron">
+                          ›
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+                    ),
+                  )}
+                </div>
+              )}
           </section>
         )}
 
@@ -676,46 +1301,80 @@ export default function Home() {
           <section className="content-section">
             <div className="section-header">
               <div>
-                <h2>Recently requested</h2>
+                <h2>
+                  Your library
+                </h2>
+
                 <p>
-                  A small preview while we build the real library state.
+                  Live state from
+                  Lidarr.
                 </p>
               </div>
             </div>
 
-            <div className="album-grid">
-              {albums.slice(0, 4).map((album) => (
-                <button
-                  type="button"
-                  className="album-card"
-                  key={album.id}
-                  onClick={() => openAlbum(album, false)}
-                >
-                  <div className={`album-artwork ${album.artworkClass}`}>
-                    {isAlbumInLidarr(album) && (
-                      <div className="album-status">
-                        <span className="status-dot" />
-                        {getLibraryStatusLabel(album)}
-                      </div>
-                    )}
-                  </div>
+            <div className="flow-grid">
+              <div className="flow-card">
+                <span className="flow-number">
+                  ALBUMS
+                </span>
 
-                  <div className="album-info">
-                    <strong>{album.title}</strong>
+                <strong>
+                  {
+                    library.albumCount
+                  }
+                </strong>
 
-                    <span>
-                      {album.artist} · {album.year}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                <p>
+                  Albums with
+                  files known by
+                  Lidarr.
+                </p>
+              </div>
+
+              <div className="flow-card">
+                <span className="flow-number">
+                  TRACKS
+                </span>
+
+                <strong>
+                  {
+                    library.trackFileCount
+                  }
+                </strong>
+
+                <p>
+                  Track files
+                  currently indexed
+                  by Lidarr.
+                </p>
+              </div>
+
+              <div className="flow-card">
+                <span className="flow-number">
+                  ARTISTS
+                </span>
+
+                <strong>
+                  {
+                    library.artistCount
+                  }
+                </strong>
+
+                <p>
+                  Artists managed by
+                  Lidarr.
+                </p>
+              </div>
             </div>
           </section>
         )}
       </main>
 
       <nav className="mobile-nav">
-        <button className="mobile-nav-active" type="button">
+        <button
+          className="mobile-nav-active"
+          type="button"
+        >
           <span>⌂</span>
           Home
         </button>
@@ -741,7 +1400,9 @@ export default function Home() {
           <button
             className="drawer-backdrop"
             type="button"
-            onClick={closeDrawer}
+            onClick={
+              closeDrawer
+            }
             aria-label="Close drawer"
           />
 
@@ -750,323 +1411,608 @@ export default function Home() {
               <button
                 className="drawer-back-button"
                 type="button"
-                onClick={goBack}
+                onClick={
+                  goBack
+                }
               >
-                {selectedAlbum && (selectedSong || selectedArtist)
+                {drawerMode ===
+                  "album" &&
+                (selectedSong ||
+                  selectedArtist)
                   ? "←"
                   : "×"}
               </button>
 
               <span>
-                {selectedAlbum
-                  ? "Album"
-                  : selectedSong
-                    ? "Song"
-                    : selectedArtist
-                      ? "Artist"
-                      : ""}
+                {drawerMode ===
+                  "song" &&
+                  "Song"}
+
+                {drawerMode ===
+                  "album" &&
+                  "Album"}
+
+                {drawerMode ===
+                  "artist" &&
+                  "Artist"}
               </span>
 
               <button
                 className="drawer-close-button"
                 type="button"
-                onClick={closeDrawer}
+                onClick={
+                  closeDrawer
+                }
               >
                 ×
               </button>
             </header>
 
-            {selectedSong && !selectedAlbum && (
+            {drawerLoading && (
               <div className="drawer-content">
-                <div className="media-kicker">Song</div>
-
-                <h2 className="drawer-title">
-                  {selectedSong.title}
-                </h2>
-
-                <div className="drawer-artist">
-                  {selectedSong.artist}
+                <div className="drawer-empty">
+                  Loading from
+                  MusicBrainz…
                 </div>
-
-                <div className="metadata-grid">
-                  <div>
-                    <span>Duration</span>
-                    <strong>{selectedSong.duration}</strong>
-                  </div>
-
-                  <div>
-                    <span>First release</span>
-                    <strong>{selectedSong.firstRelease}</strong>
-                  </div>
-                </div>
-
-                <section className="drawer-section">
-                  <div className="drawer-section-heading">
-                    <div>
-                      <h3>Appears on</h3>
-                      <p>Choose which album you actually want.</p>
-                    </div>
-                  </div>
-
-                  <div className="appears-on-list">
-                    {appearsOnAlbums.map((album) => {
-                      const requested = requestedAlbumIds.has(album.id);
-                      const libraryStatus = getLibraryStatusLabel(album);
-
-                      return (
-                        <button
-                          className="appears-on-item"
-                          type="button"
-                          key={album.id}
-                          onClick={() => openAlbum(album)}
-                        >
-                          <div
-                            className={`appears-on-artwork ${album.artworkClass}`}
-                          />
-
-                          <div className="appears-on-copy">
-                            <strong>{album.title}</strong>
-
-                            <span>
-                              {album.year} · {album.type}
-                            </span>
-                          </div>
-
-                          {isAlbumInLidarr(album) ? (
-                            <span
-                              className="library-badge"
-                              title={libraryStatus ?? "In Lidarr"}
-                            >
-                              ✓
-                            </span>
-                          ) : requested ? (
-                            <span className="requested-badge">
-                              Requested
-                            </span>
-                          ) : (
-                            <span className="result-chevron">›</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
               </div>
             )}
 
-            {selectedArtist && !selectedAlbum && (
-              <div className="drawer-content">
-                <div
-                  className={`artist-hero ${selectedArtist.artworkClass}`}
-                />
-
-                <div className="media-kicker">Artist</div>
-
-                <h2 className="drawer-title">
-                  {selectedArtist.name}
-                </h2>
-
-                <div className="drawer-artist">
-                  {selectedArtist.description}
+            {!drawerLoading &&
+              drawerError && (
+                <div className="drawer-content">
+                  <div className="drawer-empty">
+                    {
+                      drawerError
+                    }
+                  </div>
                 </div>
+              )}
 
-                <div className="artist-metadata">
-                  {selectedArtist.formed && (
-                    <span>Formed {selectedArtist.formed}</span>
-                  )}
+            {!drawerLoading &&
+              !drawerError &&
+              drawerMode ===
+                "song" &&
+              selectedSong && (
+                <div className="drawer-content">
+                  <div className="media-kicker">
+                    Song
+                  </div>
 
-                  {selectedArtist.location && (
-                    <span>{selectedArtist.location}</span>
-                  )}
-                </div>
+                  <h2 className="drawer-title">
+                    {
+                      selectedSong
+                        .song.title
+                    }
+                  </h2>
 
-                <section className="drawer-section">
-                  <div className="drawer-section-heading">
+                  <div className="drawer-artist">
+                    {
+                      selectedSong
+                        .song.artist
+                    }
+                  </div>
+
+                  <div className="metadata-grid">
                     <div>
-                      <h3>Discography</h3>
-                      <p>Choose an album to inspect it.</p>
+                      <span>
+                        Duration
+                      </span>
+
+                      <strong>
+                        {formatDuration(
+                          selectedSong
+                            .song
+                            .durationMs,
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        First release
+                      </span>
+
+                      <strong>
+                        {selectedSong
+                          .song
+                          .firstReleaseYear ??
+                          "Unknown"}
+                      </strong>
                     </div>
                   </div>
 
-                  <div className="artist-tabs">
-                    <button
-                      type="button"
-                      className={
-                        artistSection === "albums"
-                          ? "artist-tab artist-tab-active"
-                          : "artist-tab"
-                      }
-                      onClick={() => setArtistSection("albums")}
-                    >
-                      Albums
-                    </button>
+                  <section className="drawer-section">
+                    <div className="drawer-section-heading">
+                      <div>
+                        <h3>
+                          Appears on
+                        </h3>
 
-                    <button
-                      type="button"
-                      className={
-                        artistSection === "compilations"
-                          ? "artist-tab artist-tab-active"
-                          : "artist-tab"
-                      }
-                      onClick={() => setArtistSection("compilations")}
-                    >
-                      Compilations
-                    </button>
-
-                    <button
-                      type="button"
-                      className={
-                        artistSection === "other"
-                          ? "artist-tab artist-tab-active"
-                          : "artist-tab"
-                      }
-                      onClick={() => setArtistSection("other")}
-                    >
-                      Other
-                    </button>
-                  </div>
-
-                  {filteredArtistAlbums.length === 0 ? (
-                    <div className="drawer-empty">
-                      Nothing in this category yet.
+                        <p>
+                          Choose
+                          which album
+                          you actually
+                          want.
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="appears-on-list">
-                      {filteredArtistAlbums.map((album) => {
-                        const requested = requestedAlbumIds.has(album.id);
-                        const libraryStatus = getLibraryStatusLabel(album);
 
-                        return (
-                          <button
-                            className="appears-on-item"
-                            type="button"
-                            key={album.id}
-                            onClick={() => openAlbum(album)}
-                          >
-                            <div
-                              className={`appears-on-artwork ${album.artworkClass}`}
-                            />
+                    {selectedSong
+                      .appearances
+                      .length ===
+                    0 ? (
+                      <div className="drawer-empty">
+                        No official
+                        album
+                        appearances
+                        found.
+                      </div>
+                    ) : (
+                      <div className="appears-on-list">
+                        {selectedSong.appearances.map(
+                          (
+                            album,
+                          ) => {
+                            const requested =
+                              requestedAlbumIds.has(
+                                album.id,
+                              );
 
-                            <div className="appears-on-copy">
-                              <strong>{album.title}</strong>
-
-                              <span>
-                                {album.year} · {album.type}
-                              </span>
-                            </div>
-
-                            {isAlbumInLidarr(album) ? (
-                              <span
-                                className="library-badge"
-                                title={libraryStatus ?? "In Lidarr"}
+                            return (
+                              <button
+                                className="appears-on-item"
+                                type="button"
+                                key={
+                                  album.id
+                                }
+                                onClick={() =>
+                                  void openAlbum(
+                                    album,
+                                  )
+                                }
                               >
-                                ✓
-                              </span>
-                            ) : requested ? (
-                              <span className="requested-badge">
-                                Requested
-                              </span>
-                            ) : (
-                              <span className="result-chevron">›</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              </div>
-            )}
+                                <div className="appears-on-artwork metadata-result-artwork">
+                                  {album.title
+                                    .charAt(
+                                      0,
+                                    )
+                                    .toUpperCase()}
+                                </div>
 
-            {selectedAlbum && (
-              <div className="drawer-content">
-                <div
-                  className={`drawer-album-artwork ${selectedAlbum.artworkClass}`}
-                />
+                                <div className="appears-on-copy">
+                                  <strong>
+                                    {
+                                      album.title
+                                    }
+                                  </strong>
 
-                <div className="media-kicker">
-                  {selectedAlbum.type}
+                                  <span>
+                                    {album.year ??
+                                      "Unknown"}
+
+                                    {" · "}
+
+                                    {albumTypeLabel(
+                                      album,
+                                    )}
+                                  </span>
+                                </div>
+
+                                {isAlbumInLidarr(
+                                  album,
+                                ) ? (
+                                  <span className="library-badge">
+                                    ✓
+                                  </span>
+                                ) : requested ? (
+                                  <span className="requested-badge">
+                                    Requested
+                                  </span>
+                                ) : (
+                                  <span className="result-chevron">
+                                    ›
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+                    )}
+                  </section>
                 </div>
+              )}
 
-                <h2 className="drawer-title">
-                  {selectedAlbum.title}
-                </h2>
-
-                <div className="drawer-artist">
-                  {selectedAlbum.artist} · {selectedAlbum.year}
-                </div>
-
-                <section className="drawer-section">
-                  <div className="drawer-section-heading">
-                    <div>
-                      <h3>Tracklist</h3>
-                      <p>{selectedAlbum.tracks.length} tracks</p>
-                    </div>
+            {!drawerLoading &&
+              !drawerError &&
+              drawerMode ===
+                "artist" &&
+              selectedArtist && (
+                <div className="drawer-content">
+                  <div className="artist-hero metadata-artist-hero">
+                    {selectedArtist.artist.name
+                      .charAt(
+                        0,
+                      )
+                      .toUpperCase()}
                   </div>
 
-                  <ol className="track-list">
-                    {selectedAlbum.tracks.map((track, index) => {
-                      const highlighted =
-                        selectedSong &&
-                        normalize(track) === normalize(selectedSong.title);
+                  <div className="media-kicker">
+                    Artist
+                  </div>
 
-                      return (
-                        <li
-                          className={
-                            highlighted
-                              ? "track-highlighted"
-                              : ""
-                          }
-                          key={`${track}-${index}`}
-                        >
-                          <span className="track-number">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
+                  <h2 className="drawer-title">
+                    {
+                      selectedArtist
+                        .artist.name
+                    }
+                  </h2>
 
-                          <span>{track}</span>
+                  <div className="drawer-artist">
+                    {[
+                      selectedArtist
+                        .artist.type,
+                      selectedArtist
+                        .artist.area,
+                      selectedArtist
+                        .artist
+                        .country,
+                      selectedArtist
+                        .artist
+                        .disambiguation,
+                    ]
+                      .filter(
+                        Boolean,
+                      )
+                      .join(" · ")}
+                  </div>
 
-                          {highlighted && (
-                            <span className="track-match">
-                              Selected song
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
+                  <div className="artist-metadata">
+                    {selectedArtist
+                      .artist
+                      .beginYear && (
+                      <span>
+                        Since{" "}
+                        {
+                          selectedArtist
+                            .artist
+                            .beginYear
+                        }
+                      </span>
+                    )}
 
-                <div className="request-area">
-                  {isAlbumInLidarr(selectedAlbum) ? (
-                    <div className="in-library-state">
-                      <span className="status-dot" />
+                    <span>
+                      {
+                        selectedArtist
+                          .discography
+                          .length
+                      }{" "}
+                      release groups
+                    </span>
+                  </div>
 
-                      {getLibraryStatusLabel(selectedAlbum)}
+                  <section className="drawer-section">
+                    <div className="drawer-section-heading">
+                      <div>
+                        <h3>
+                          Discography
+                        </h3>
+
+                        <p>
+                          Choose an
+                          album to
+                          inspect it.
+                        </p>
+                      </div>
                     </div>
-                  ) : requestedAlbumIds.has(selectedAlbum.id) ? (
-                    <button
-                      className="request-button requested"
-                      disabled
-                    >
-                      ✓ Requested
-                    </button>
-                  ) : (
-                    <button
-                      className="request-button"
-                      type="button"
-                      disabled={
-                        requestingAlbumId === selectedAlbum.id
-                      }
-                      onClick={() => requestAlbum(selectedAlbum)}
-                    >
-                      {requestingAlbumId === selectedAlbum.id
-                        ? "Requesting..."
-                        : "Request Album"}
-                    </button>
-                  )}
+
+                    <div className="artist-tabs">
+                      <button
+                        type="button"
+                        className={
+                          artistSection ===
+                          "albums"
+                            ? "artist-tab artist-tab-active"
+                            : "artist-tab"
+                        }
+                        onClick={() =>
+                          setArtistSection(
+                            "albums",
+                          )
+                        }
+                      >
+                        Albums
+                      </button>
+
+                      <button
+                        type="button"
+                        className={
+                          artistSection ===
+                          "compilations"
+                            ? "artist-tab artist-tab-active"
+                            : "artist-tab"
+                        }
+                        onClick={() =>
+                          setArtistSection(
+                            "compilations",
+                          )
+                        }
+                      >
+                        Compilations
+                      </button>
+
+                      <button
+                        type="button"
+                        className={
+                          artistSection ===
+                          "live"
+                            ? "artist-tab artist-tab-active"
+                            : "artist-tab"
+                        }
+                        onClick={() =>
+                          setArtistSection(
+                            "live",
+                          )
+                        }
+                      >
+                        Live
+                      </button>
+
+                      <button
+                        type="button"
+                        className={
+                          artistSection ===
+                          "singles"
+                            ? "artist-tab artist-tab-active"
+                            : "artist-tab"
+                        }
+                        onClick={() =>
+                          setArtistSection(
+                            "singles",
+                          )
+                        }
+                      >
+                        Singles & EPs
+                      </button>
+                    </div>
+
+                    {filteredArtistAlbums.length ===
+                    0 ? (
+                      <div className="drawer-empty">
+                        Nothing in
+                        this category.
+                      </div>
+                    ) : (
+                      <div className="appears-on-list">
+                        {filteredArtistAlbums.map(
+                          (
+                            album,
+                          ) => (
+                            <button
+                              className="appears-on-item"
+                              type="button"
+                              key={
+                                album.id
+                              }
+                              onClick={() =>
+                                void openAlbum(
+                                  album,
+                                )
+                              }
+                            >
+                              <div className="appears-on-artwork metadata-result-artwork">
+                                {album.title
+                                  .charAt(
+                                    0,
+                                  )
+                                  .toUpperCase()}
+                              </div>
+
+                              <div className="appears-on-copy">
+                                <strong>
+                                  {
+                                    album.title
+                                  }
+                                </strong>
+
+                                <span>
+                                  {album.year ??
+                                    "Unknown"}
+
+                                  {" · "}
+
+                                  {albumTypeLabel(
+                                    album,
+                                  )}
+                                </span>
+                              </div>
+
+                              {isAlbumInLidarr(
+                                album,
+                              ) ? (
+                                <span className="library-badge">
+                                  ✓
+                                </span>
+                              ) : (
+                                <span className="result-chevron">
+                                  ›
+                                </span>
+                              )}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </section>
                 </div>
-              </div>
-            )}
+              )}
+
+            {!drawerLoading &&
+              !drawerError &&
+              drawerMode ===
+                "album" &&
+              selectedAlbum && (
+                <div className="drawer-content">
+                  <div className="drawer-album-artwork metadata-album-hero">
+                    {selectedAlbum.album.title
+                      .charAt(
+                        0,
+                      )
+                      .toUpperCase()}
+                  </div>
+
+                  <div className="media-kicker">
+                    {albumTypeLabel(
+                      selectedAlbum.album,
+                    )}
+                  </div>
+
+                  <h2 className="drawer-title">
+                    {
+                      selectedAlbum
+                        .album.title
+                    }
+                  </h2>
+
+                  <div className="drawer-artist">
+                    {
+                      selectedAlbum
+                        .album.artist
+                    }
+
+                    {selectedAlbum
+                      .album.year
+                      ? ` · ${selectedAlbum.album.year}`
+                      : ""}
+                  </div>
+
+                  <section className="drawer-section">
+                    <div className="drawer-section-heading">
+                      <div>
+                        <h3>
+                          Tracklist
+                        </h3>
+
+                        <p>
+                          {
+                            selectedAlbum
+                              .tracks
+                              .length
+                          }{" "}
+                          tracks ·
+                          representative
+                          MusicBrainz
+                          release
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedAlbum
+                      .tracks
+                      .length ===
+                    0 ? (
+                      <div className="drawer-empty">
+                        No tracklist
+                        available.
+                      </div>
+                    ) : (
+                      <ol className="track-list">
+                        {selectedAlbum.tracks.map(
+                          (
+                            track,
+                            index,
+                          ) => {
+                            const highlighted =
+                              selectedSong?.song.id ===
+                              track.recordingId;
+
+                            return (
+                              <li
+                                className={
+                                  highlighted
+                                    ? "track-highlighted"
+                                    : ""
+                                }
+                                key={`${track.position}-${track.recordingId ?? index}`}
+                              >
+                                <span className="track-number">
+                                  {
+                                    track.position
+                                  }
+                                </span>
+
+                                <span>
+                                  {
+                                    track.title
+                                  }
+                                </span>
+
+                                {highlighted ? (
+                                  <span className="track-match">
+                                    Selected
+                                    song
+                                  </span>
+                                ) : (
+                                  <span className="track-duration">
+                                    {formatDuration(
+                                      track.durationMs,
+                                    )}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          },
+                        )}
+                      </ol>
+                    )}
+                  </section>
+
+                  <div className="request-area">
+                    {isAlbumInLidarr(
+                      selectedAlbum.album,
+                    ) ? (
+                      <div className="in-library-state">
+                        <span className="status-dot" />
+
+                        {getLibraryStatusLabel(
+                          selectedAlbum.album,
+                        )}
+                      </div>
+                    ) : requestedAlbumIds.has(
+                        selectedAlbum
+                          .album.id,
+                      ) ? (
+                      <button
+                        className="request-button requested"
+                        disabled
+                      >
+                        ✓ Requested
+                      </button>
+                    ) : (
+                      <button
+                        className="request-button"
+                        type="button"
+                        disabled={
+                          requestingAlbumId ===
+                          selectedAlbum
+                            .album.id
+                        }
+                        onClick={() =>
+                          requestAlbum(
+                            selectedAlbum.album,
+                          )
+                        }
+                      >
+                        {requestingAlbumId ===
+                        selectedAlbum
+                          .album.id
+                          ? "Requesting..."
+                          : "Request Album"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
           </aside>
         </>
       )}

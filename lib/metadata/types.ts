@@ -59,3 +59,28 @@ export type MetadataSearchResult =
   | MetadataArtistResult
   | MetadataAlbumResult
   | MetadataSongResult;
+
+export type MetadataTrack = {
+  position: string;
+  title: string;
+  durationMs: number | null;
+  recordingId: string | null;
+};
+
+export type MetadataSongDetails = {
+  song: MetadataSongResult;
+  appearances: MetadataAlbumResult[];
+};
+
+export type MetadataAlbumDetails = {
+  album: MetadataAlbumResult;
+
+  representativeReleaseId: string | null;
+
+  tracks: MetadataTrack[];
+};
+
+export type MetadataArtistDetails = {
+  artist: MetadataArtistResult;
+  discography: MetadataAlbumResult[];
+};
