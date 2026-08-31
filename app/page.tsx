@@ -14,6 +14,40 @@ import {
 type SearchType = "song" | "album" | "artist";
 type ArtistSection = "albums" | "compilations" | "other";
 
+type LibraryAlbum = {
+  lidarrId: number;
+
+  title: string;
+  artist: string;
+
+  year: number | null;
+
+  musicBrainzReleaseGroupId: string;
+  musicBrainzArtistId: string | null;
+
+  monitored: boolean;
+
+  status: "tracked" | "partial" | "available";
+
+  trackFileCount: number;
+  trackCount: number;
+  sizeOnDisk: number;
+};
+
+type LibraryState = {
+  status: "loading" | "ready" | "error";
+
+  albums: LibraryAlbum[];
+
+  knownAlbumCount: number;
+  monitoredAlbumCount: number;
+
+  albumCount: number;
+  trackFileCount: number;
+
+  artistCount: number;
+};
+
 function normalize(value: string) {
   return value.trim().toLowerCase();
 }
@@ -58,6 +92,20 @@ export default function Home() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
 
+  const [library, setLibrary] = useState<LibraryState>({
+  status: "loading",
+
+  albums: [],
+
+  knownAlbumCount: 0,
+  monitoredAlbumCount: 0,
+
+  albumCount: 0,
+  trackFileCount: 0,
+
+  artistCount: 0,
+});
+
   const [artistSection, setArtistSection] =
     useState<ArtistSection>("albums");
 
@@ -69,6 +117,12 @@ export default function Home() {
     useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+
+  function closeDrawer() {
+    setSelectedAlbum(null);
+    setSelectedSong(null);
+    setSelectedArtist(null);
+  }
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -85,6 +139,73 @@ export default function Home() {
     window.addEventListener("keydown", handleShortcut);
 
     return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  useEffect(() => {
+    async function loadLibrary() {
+      try {
+        const response = await fetch("/api/lidarr/library", {
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok || !data.library) {
+          setLibrary({
+            status: "error",
+
+            albums: [],
+
+            knownAlbumCount: 0,
+            monitoredAlbumCount: 0,
+
+            albumCount: 0,
+            trackFileCount: 0,
+
+            artistCount: 0,
+          });
+
+          return;
+        }
+
+        setLibrary({
+          status: "ready",
+
+          albums: data.library.albums,
+
+          knownAlbumCount:
+            data.library.knownAlbumCount,
+
+          monitoredAlbumCount:
+            data.library.monitoredAlbumCount,
+
+          albumCount:
+            data.library.albumCount,
+
+          trackFileCount:
+            data.library.trackFileCount,
+
+          artistCount:
+            data.library.artistCount,
+        });
+      } catch {
+        setLibrary({
+          status: "error",
+
+          albums: [],
+
+          knownAlbumCount: 0,
+          monitoredAlbumCount: 0,
+
+          albumCount: 0,
+          trackFileCount: 0,
+
+          artistCount: 0,
+        });
+      }
+    }
+
+    void loadLibrary();
   }, []);
 
   const songResults = useMemo(() => {
@@ -148,6 +269,45 @@ export default function Home() {
     return album.type !== "Original Album" && album.type !== "Compilation";
   });
 
+  function findLibraryAlbum(album: Album): LibraryAlbum | null {
+    return (
+      library.albums.find((candidate) => {
+        const sameTitle =
+          normalize(candidate.title) === normalize(album.title);
+
+        const sameArtist =
+          normalize(candidate.artist) === normalize(album.artist);
+
+        const compatibleYear =
+          candidate.year === null || candidate.year === album.year;
+
+        return sameTitle && sameArtist && compatibleYear;
+      }) ?? null
+    );
+  }
+
+  function isAlbumInLidarr(album: Album) {
+    return Boolean(findLibraryAlbum(album));
+  }
+
+  function getLibraryStatusLabel(album: Album) {
+    const libraryAlbum = findLibraryAlbum(album);
+
+    if (!libraryAlbum) {
+      return null;
+    }
+
+    if (libraryAlbum.status === "available") {
+      return "Available";
+    }
+
+    if (libraryAlbum.status === "partial") {
+      return `${libraryAlbum.trackFileCount}/${libraryAlbum.trackCount} tracks`;
+    }
+
+    return "In Lidarr";
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -184,12 +344,6 @@ export default function Home() {
     setSelectedAlbum(album);
   }
 
-  function closeDrawer() {
-    setSelectedAlbum(null);
-    setSelectedSong(null);
-    setSelectedArtist(null);
-  }
-
   function goBack() {
     if (selectedAlbum) {
       if (selectedSong || selectedArtist) {
@@ -205,7 +359,10 @@ export default function Home() {
   }
 
   function requestAlbum(album: Album) {
-    if (album.inLibrary || requestedAlbumIds.has(album.id)) {
+    if (
+      isAlbumInLidarr(album) ||
+      requestedAlbumIds.has(album.id)
+    ) {
       return;
     }
 
@@ -274,11 +431,25 @@ export default function Home() {
           </Link>
 
           <div className="lidarr-status">
-            <span className="status-dot" />
+            <span
+              className={
+                library.status === "ready"
+                  ? "status-dot"
+                  : "status-dot status-dot-offline"
+              }
+            />
 
             <div>
               <strong>Lidarr</strong>
-              <span>Connected</span>
+
+              <span>
+                {library.status === "loading" && "Syncing library..."}
+
+                {library.status === "ready" &&
+                  `${library.albumCount} albums · ${library.trackFileCount} tracks`}
+
+                {library.status === "error" && "Unavailable"}
+              </span>
             </div>
           </div>
         </div>
@@ -306,8 +477,8 @@ export default function Home() {
           <h1>Find it. Pick the album. Request it.</h1>
 
           <p>
-            Search for a song, album or artist. Composeerr handles the
-            messy part between you and Lidarr.
+            Search for a song, album or artist. Composeerr handles the messy
+            part between you and Lidarr.
           </p>
 
           <form className="search-form" onSubmit={handleSubmit}>
@@ -391,6 +562,7 @@ export default function Home() {
 
                         <div className="song-result-copy">
                           <strong>{song.title}</strong>
+
                           <span>
                             {song.artist} · {song.firstRelease}
                           </span>
@@ -421,6 +593,7 @@ export default function Home() {
                   <div className="song-results">
                     {albumResults.map((album) => {
                       const requested = requestedAlbumIds.has(album.id);
+                      const libraryStatus = getLibraryStatusLabel(album);
 
                       return (
                         <button
@@ -441,8 +614,13 @@ export default function Home() {
                             </span>
                           </div>
 
-                          {album.inLibrary ? (
-                            <span className="library-badge">✓</span>
+                          {isAlbumInLidarr(album) ? (
+                            <span
+                              className="library-badge"
+                              title={libraryStatus ?? "In Lidarr"}
+                            >
+                              ✓
+                            </span>
                           ) : requested ? (
                             <span className="requested-badge">
                               Requested
@@ -513,13 +691,11 @@ export default function Home() {
                   key={album.id}
                   onClick={() => openAlbum(album, false)}
                 >
-                  <div
-                    className={`album-artwork ${album.artworkClass}`}
-                  >
-                    {album.inLibrary && (
+                  <div className={`album-artwork ${album.artworkClass}`}>
+                    {isAlbumInLidarr(album) && (
                       <div className="album-status">
                         <span className="status-dot" />
-                        In Library
+                        {getLibraryStatusLabel(album)}
                       </div>
                     )}
                   </div>
@@ -634,8 +810,8 @@ export default function Home() {
 
                   <div className="appears-on-list">
                     {appearsOnAlbums.map((album) => {
-                      const requested =
-                        requestedAlbumIds.has(album.id);
+                      const requested = requestedAlbumIds.has(album.id);
+                      const libraryStatus = getLibraryStatusLabel(album);
 
                       return (
                         <button
@@ -656,8 +832,13 @@ export default function Home() {
                             </span>
                           </div>
 
-                          {album.inLibrary ? (
-                            <span className="library-badge">✓</span>
+                          {isAlbumInLidarr(album) ? (
+                            <span
+                              className="library-badge"
+                              title={libraryStatus ?? "In Lidarr"}
+                            >
+                              ✓
+                            </span>
                           ) : requested ? (
                             <span className="requested-badge">
                               Requested
@@ -727,9 +908,7 @@ export default function Home() {
                           ? "artist-tab artist-tab-active"
                           : "artist-tab"
                       }
-                      onClick={() =>
-                        setArtistSection("compilations")
-                      }
+                      onClick={() => setArtistSection("compilations")}
                     >
                       Compilations
                     </button>
@@ -754,8 +933,8 @@ export default function Home() {
                   ) : (
                     <div className="appears-on-list">
                       {filteredArtistAlbums.map((album) => {
-                        const requested =
-                          requestedAlbumIds.has(album.id);
+                        const requested = requestedAlbumIds.has(album.id);
+                        const libraryStatus = getLibraryStatusLabel(album);
 
                         return (
                           <button
@@ -776,8 +955,13 @@ export default function Home() {
                               </span>
                             </div>
 
-                            {album.inLibrary ? (
-                              <span className="library-badge">✓</span>
+                            {isAlbumInLidarr(album) ? (
+                              <span
+                                className="library-badge"
+                                title={libraryStatus ?? "In Lidarr"}
+                              >
+                                ✓
+                              </span>
                             ) : requested ? (
                               <span className="requested-badge">
                                 Requested
@@ -824,8 +1008,7 @@ export default function Home() {
                     {selectedAlbum.tracks.map((track, index) => {
                       const highlighted =
                         selectedSong &&
-                        normalize(track) ===
-                          normalize(selectedSong.title);
+                        normalize(track) === normalize(selectedSong.title);
 
                       return (
                         <li
@@ -854,10 +1037,11 @@ export default function Home() {
                 </section>
 
                 <div className="request-area">
-                  {selectedAlbum.inLibrary ? (
+                  {isAlbumInLidarr(selectedAlbum) ? (
                     <div className="in-library-state">
                       <span className="status-dot" />
-                      In Library
+
+                      {getLibraryStatusLabel(selectedAlbum)}
                     </div>
                   ) : requestedAlbumIds.has(selectedAlbum.id) ? (
                     <button
@@ -873,9 +1057,7 @@ export default function Home() {
                       disabled={
                         requestingAlbumId === selectedAlbum.id
                       }
-                      onClick={() =>
-                        requestAlbum(selectedAlbum)
-                      }
+                      onClick={() => requestAlbum(selectedAlbum)}
                     >
                       {requestingAlbumId === selectedAlbum.id
                         ? "Requesting..."

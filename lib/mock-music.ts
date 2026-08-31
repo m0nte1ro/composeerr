@@ -5,7 +5,6 @@ export type Album = {
   year: number;
   type: string;
   artworkClass: string;
-  inLibrary?: boolean;
   tracks: string[];
 };
 
@@ -80,7 +79,6 @@ export const albums: Album[] = [
     year: 2008,
     type: "Compilation",
     artworkClass: "artwork-bestof",
-    inLibrary: true,
     tracks: [
       "Just",
       "Paranoid Android",
@@ -157,7 +155,6 @@ export const albums: Album[] = [
     year: 2015,
     type: "Compilation",
     artworkClass: "artwork-ultimate",
-    inLibrary: true,
     tracks: [
       "All or Nothing at All",
       "I'll Never Smile Again",

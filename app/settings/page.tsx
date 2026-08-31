@@ -57,6 +57,9 @@ export default function SettingsPage() {
 
   const [showApiKey, setShowApiKey] =
     useState(false);
+    
+  const [editingApiKey, setEditingApiKey] =
+    useState(false);
 
   const [rootFolderId, setRootFolderId] =
     useState("");
@@ -329,6 +332,9 @@ export default function SettingsPage() {
       setHasSavedApiKey(true);
       setApiKey("");
 
+      setEditingApiKey(false);
+      setShowApiKey(false);
+
       setSaveState("saved");
 
       window.setTimeout(() => {
@@ -478,43 +484,68 @@ export default function SettingsPage() {
                     API Key
                   </label>
 
-                  <div className="secret-input">
-                    <input
-                      id="lidarr-api-key"
-                      type={
-                        showApiKey
-                          ? "text"
-                          : "password"
-                      }
-                      value={apiKey}
-                      onChange={(event) => {
-                        setApiKey(
-                          event.target.value,
-                        );
+                  {hasSavedApiKey && !editingApiKey ? (
+  <div className="secret-input">
+    <input
+      id="lidarr-api-key"
+      type="text"
+      value="••••••••••••••••"
+      readOnly
+      aria-label="Saved Lidarr API key"
+    />
 
-                        connectionChanged();
-                      }}
-                      placeholder={
-                        hasSavedApiKey
-                          ? "Saved API key — leave blank to keep it"
-                          : "Lidarr API key"
-                      }
-                      autoComplete="off"
-                    />
+    <button
+      type="button"
+      onClick={() => {
+        setEditingApiKey(true);
+        setApiKey("");
+        setShowApiKey(false);
+      }}
+    >
+      Change
+    </button>
+  </div>
+) : (
+  <div className="secret-input">
+    <input
+      id="lidarr-api-key"
+      type={showApiKey ? "text" : "password"}
+      value={apiKey}
+      onChange={(event) => {
+        setApiKey(event.target.value);
+        connectionChanged();
+      }}
+      placeholder={
+        hasSavedApiKey
+          ? "Enter new API key"
+          : "Lidarr API key"
+      }
+      autoComplete="off"
+    />
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowApiKey(
-                          (current) => !current,
-                        )
-                      }
-                    >
-                      {showApiKey
-                        ? "Hide"
-                        : "Show"}
-                    </button>
-                  </div>
+    <button
+      type="button"
+      onClick={() =>
+        setShowApiKey((current) => !current)
+      }
+    >
+      {showApiKey ? "Hide" : "Show"}
+    </button>
+
+    {hasSavedApiKey && (
+      <button
+        type="button"
+        onClick={() => {
+          setEditingApiKey(false);
+          setApiKey("");
+          setShowApiKey(false);
+        }}
+      >
+        Cancel
+      </button>
+    )}
+  </div>
+)}
 
                   <span>
                     The saved API key is never

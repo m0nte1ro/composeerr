@@ -28,6 +28,69 @@ export type LidarrOptions = {
   metadataProfiles: LidarrProfile[];
 };
 
+type LidarrArtistResource = {
+  id: number;
+  artistName: string;
+  foreignArtistId: string;
+  monitored: boolean;
+};
+
+type LidarrAlbumStatistics = {
+  trackFileCount: number;
+  trackCount: number;
+  totalTrackCount: number;
+  sizeOnDisk: number;
+  percentOfTracks?: number;
+};
+
+type LidarrAlbumResource = {
+  id: number;
+  artistId: number;
+
+  title: string;
+  foreignAlbumId: string;
+
+  monitored: boolean;
+
+  releaseDate?: string | null;
+
+  albumType?: string | null;
+  secondaryTypes?: string[];
+
+  statistics?: LidarrAlbumStatistics | null;
+};
+
+export type ComposeerrLibraryAlbum = {
+  lidarrId: number;
+
+  title: string;
+  artist: string;
+
+  year: number | null;
+
+  musicBrainzReleaseGroupId: string;
+  musicBrainzArtistId: string | null;
+
+  monitored: boolean;
+
+  status: "tracked" | "partial" | "available";
+
+  trackFileCount: number;
+  trackCount: number;
+  sizeOnDisk: number;
+};
+
+export type ComposeerrLibrary = {
+  albums: ComposeerrLibraryAlbum[];
+
+  knownAlbumCount: number;
+  monitoredAlbumCount: number;
+  albumCount: number;
+  trackFileCount: number;
+
+  artistCount: number;
+};
+
 export class LidarrRequestError extends Error {
   constructor(
     message: string,
@@ -163,4 +226,126 @@ export async function getLidarrOptions(
     qualityProfiles,
     metadataProfiles,
   };
+}
+
+export async function getLidarrLibrary(
+  connection: LidarrConnection,
+): Promise<ComposeerrLibrary> {
+  const [artists, albums] = await Promise.all([
+    lidarrGet<LidarrArtistResource[]>(
+      connection,
+      "/api/v1/artist",
+    ),
+
+    lidarrGet<LidarrAlbumResource[]>(
+      connection,
+      "/api/v1/album",
+    ),
+  ]);
+
+  const artistsById = new Map(
+    artists.map((artist) => [
+      artist.id,
+      artist,
+    ]),
+  );
+
+  const normalizedAlbums =
+    albums.map<ComposeerrLibraryAlbum>(
+      (album) => {
+        const artist =
+          artistsById.get(album.artistId);
+
+        const trackFileCount =
+          album.statistics?.trackFileCount ?? 0;
+
+        const trackCount =
+          album.statistics?.trackCount ?? 0;
+
+        let status:
+          | "tracked"
+          | "partial"
+          | "available" = "tracked";
+
+        if (
+          trackCount > 0 &&
+          trackFileCount >= trackCount
+        ) {
+          status = "available";
+        } else if (trackFileCount > 0) {
+          status = "partial";
+        }
+
+        const releaseYear =
+          album.releaseDate
+            ? Number(
+                album.releaseDate.slice(0, 4),
+              )
+            : null;
+
+        return {
+          lidarrId: album.id,
+
+          title: album.title,
+
+          artist:
+            artist?.artistName ??
+            "Unknown Artist",
+
+          year:
+            Number.isFinite(releaseYear)
+              ? releaseYear
+              : null,
+
+          musicBrainzReleaseGroupId:
+            album.foreignAlbumId,
+
+          musicBrainzArtistId:
+            artist?.foreignArtistId ??
+            null,
+
+          monitored: album.monitored,
+
+          status,
+
+          trackFileCount,
+          trackCount,
+
+          sizeOnDisk:
+            album.statistics?.sizeOnDisk ?? 0,
+        };
+      },
+    );
+
+ const libraryAlbums = normalizedAlbums.filter(
+  (album) =>
+    album.monitored ||
+    album.trackFileCount > 0,
+);
+
+const albumsWithFiles = libraryAlbums.filter(
+  (album) => album.trackFileCount > 0,
+);
+
+return {
+  albums: libraryAlbums,
+
+  knownAlbumCount: normalizedAlbums.length,
+
+  monitoredAlbumCount:
+    normalizedAlbums.filter(
+      (album) => album.monitored,
+    ).length,
+
+  albumCount: albumsWithFiles.length,
+
+  trackFileCount:
+    normalizedAlbums.reduce(
+      (total, album) =>
+        total + album.trackFileCount,
+      0,
+    ),
+
+  artistCount: artists.length,
+};
 }
