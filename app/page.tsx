@@ -239,6 +239,12 @@ export default function Home() {
   ] =
     useState<string | null>(null);
 
+  const [
+    requestError,
+    setRequestError,
+  ] =
+    useState<string | null>(null);
+
   const searchRef =
     useRef<HTMLInputElement>(
       null,
@@ -249,10 +255,79 @@ export default function Home() {
 
     setDrawerLoading(false);
     setDrawerError(null);
+    setRequestError(null);
 
     setSelectedSong(null);
     setSelectedAlbum(null);
     setSelectedArtist(null);
+  }
+
+  function applyLibraryData(
+    data: {
+      albums?: LibraryAlbum[];
+
+      knownAlbumCount?: number;
+      monitoredAlbumCount?: number;
+
+      albumCount?: number;
+      trackFileCount?: number;
+
+      artistCount?: number;
+    },
+  ) {
+    setLibrary({
+      status: "ready",
+
+      albums:
+        data.albums ?? [],
+
+      knownAlbumCount:
+        data.knownAlbumCount ??
+        0,
+
+      monitoredAlbumCount:
+        data.monitoredAlbumCount ??
+        0,
+
+      albumCount:
+        data.albumCount ??
+        0,
+
+      trackFileCount:
+        data.trackFileCount ??
+        0,
+
+      artistCount:
+        data.artistCount ??
+        0,
+    });
+  }
+
+  async function refreshLibrary() {
+    const response =
+      await fetch(
+        "/api/lidarr/library",
+        {
+          cache: "no-store",
+        },
+      );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !data.ok ||
+      !data.library
+    ) {
+      throw new Error(
+        "Could not refresh Lidarr library.",
+      );
+    }
+
+    applyLibraryData(
+      data.library,
+    );
   }
 
   useEffect(() => {
@@ -294,56 +369,7 @@ export default function Home() {
   useEffect(() => {
     async function loadLibrary() {
       try {
-        const response =
-          await fetch(
-            "/api/lidarr/library",
-            {
-              cache: "no-store",
-            },
-          );
-
-        const data =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !data.ok ||
-          !data.library
-        ) {
-          throw new Error();
-        }
-
-        setLibrary({
-          status: "ready",
-
-          albums:
-            data.library.albums,
-
-          knownAlbumCount:
-            data.library
-              .knownAlbumCount ??
-            0,
-
-          monitoredAlbumCount:
-            data.library
-              .monitoredAlbumCount ??
-            0,
-
-          albumCount:
-            data.library
-              .albumCount ??
-            0,
-
-          trackFileCount:
-            data.library
-              .trackFileCount ??
-            0,
-
-          artistCount:
-            data.library
-              .artistCount ??
-            0,
-        });
+        await refreshLibrary();
       } catch {
         setLibrary({
           status: "error",
@@ -476,6 +502,7 @@ export default function Home() {
     setDrawerMode("song");
     setDrawerLoading(true);
     setDrawerError(null);
+    setRequestError(null);
 
     setSelectedSong(null);
     setSelectedAlbum(null);
@@ -506,6 +533,7 @@ export default function Home() {
     setDrawerMode("artist");
     setDrawerLoading(true);
     setDrawerError(null);
+    setRequestError(null);
 
     setSelectedSong(null);
     setSelectedAlbum(null);
@@ -540,6 +568,8 @@ export default function Home() {
     album: MetadataAlbumResult,
     preserveParent = true,
   ) {
+    setRequestError(null);
+
     if (!preserveParent) {
       setSelectedSong(null);
       setSelectedArtist(null);
@@ -573,6 +603,8 @@ export default function Home() {
   }
 
   function goBack() {
+    setRequestError(null);
+
     if (
       drawerMode === "album"
     ) {
@@ -648,25 +680,59 @@ export default function Home() {
     return "In Lidarr";
   }
 
-  function requestAlbum(
+  async function requestAlbum(
     album: MetadataAlbumResult,
   ) {
     if (
       isAlbumInLidarr(album) ||
       requestedAlbumIds.has(
         album.id,
-      )
+      ) ||
+      requestingAlbumId ===
+        album.id
     ) {
       return;
     }
+
+    setRequestError(null);
 
     setRequestingAlbumId(
       album.id,
     );
 
-    // Still simulated.
-    // Real Lidarr request is the next step.
-    window.setTimeout(() => {
+    try {
+      const response =
+        await fetch(
+          "/api/lidarr/request",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                musicBrainzReleaseGroupId:
+                  album.id,
+              }),
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+        throw new Error(
+          data.error ??
+          "Request failed.",
+        );
+      }
+
       setRequestedAlbumIds(
         (current) => {
           const next =
@@ -680,10 +746,18 @@ export default function Home() {
         },
       );
 
+      await refreshLibrary();
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Could not request album.",
+      );
+    } finally {
       setRequestingAlbumId(
         null,
       );
-    }, 850);
+    }
   }
 
   const songResults =
@@ -1021,8 +1095,7 @@ export default function Home() {
 
                 <p>
                   Real MusicBrainz
-                  results matching
-                  {" "}
+                  results matching{" "}
                   “{submittedQuery}”
                 </p>
               </div>
@@ -1968,6 +2041,14 @@ export default function Home() {
                   </section>
 
                   <div className="request-area">
+                    {requestError && (
+                      <div className="request-error">
+                        {
+                          requestError
+                        }
+                      </div>
+                    )}
+
                     {isAlbumInLidarr(
                       selectedAlbum.album,
                     ) ? (
@@ -1998,7 +2079,7 @@ export default function Home() {
                             .album.id
                         }
                         onClick={() =>
-                          requestAlbum(
+                          void requestAlbum(
                             selectedAlbum.album,
                           )
                         }
