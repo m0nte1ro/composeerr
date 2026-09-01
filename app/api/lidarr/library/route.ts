@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getLidarrLibrary,
-  LidarrRequestError,
-} from "@/lib/server/lidarr-client";
+import { getLidarrLibrary, LidarrRequestError } from "@/lib/server/lidarr";
 
 import { getLidarrSettings } from "@/lib/server/lidarr-settings";
 
@@ -26,11 +23,10 @@ export async function GET() {
   }
 
   try {
-    const library =
-      await getLidarrLibrary({
-        url: settings.url,
-        apiKey: settings.apiKey,
-      });
+    const library = await getLidarrLibrary({
+      url: settings.url,
+      apiKey: settings.apiKey,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -55,8 +51,7 @@ export async function GET() {
       {
         ok: false,
         configured: true,
-        error:
-          "Could not load the Lidarr library.",
+        error: "Could not load the Lidarr library.",
       },
       {
         status: 500,

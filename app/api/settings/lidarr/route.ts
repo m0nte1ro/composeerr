@@ -5,7 +5,7 @@ import {
   getLidarrStatus,
   LidarrRequestError,
   normalizeLidarrUrl,
-} from "@/lib/server/lidarr-client";
+} from "@/lib/server/lidarr";
 
 import {
   getLidarrSettings,
@@ -54,14 +54,9 @@ export async function PUT(request: Request) {
 
   const existing = getLidarrSettings();
 
-  const url = normalizeLidarrUrl(
-    body.url ?? existing?.url ?? "",
-  );
+  const url = normalizeLidarrUrl(body.url ?? existing?.url ?? "");
 
-  const apiKey =
-    body.apiKey?.trim() ||
-    existing?.apiKey ||
-    "";
+  const apiKey = body.apiKey?.trim() || existing?.apiKey || "";
 
   if (!url) {
     return NextResponse.json(
@@ -97,20 +92,15 @@ export async function PUT(request: Request) {
 
     const options = await getLidarrOptions(connection);
 
-    const rootFolderId =
-      body.rootFolderId ?? null;
+    const rootFolderId = body.rootFolderId ?? null;
 
-    const qualityProfileId =
-      body.qualityProfileId ?? null;
+    const qualityProfileId = body.qualityProfileId ?? null;
 
-    const metadataProfileId =
-      body.metadataProfileId ?? null;
+    const metadataProfileId = body.metadataProfileId ?? null;
 
     if (
       rootFolderId !== null &&
-      !options.rootFolders.some(
-        (item) => item.id === rootFolderId,
-      )
+      !options.rootFolders.some((item) => item.id === rootFolderId)
     ) {
       throw new LidarrRequestError(
         "Selected root folder does not exist in Lidarr.",
@@ -120,9 +110,7 @@ export async function PUT(request: Request) {
 
     if (
       qualityProfileId !== null &&
-      !options.qualityProfiles.some(
-        (item) => item.id === qualityProfileId,
-      )
+      !options.qualityProfiles.some((item) => item.id === qualityProfileId)
     ) {
       throw new LidarrRequestError(
         "Selected quality profile does not exist in Lidarr.",
@@ -132,9 +120,7 @@ export async function PUT(request: Request) {
 
     if (
       metadataProfileId !== null &&
-      !options.metadataProfiles.some(
-        (item) => item.id === metadataProfileId,
-      )
+      !options.metadataProfiles.some((item) => item.id === metadataProfileId)
     ) {
       throw new LidarrRequestError(
         "Selected metadata profile does not exist in Lidarr.",
@@ -150,8 +136,7 @@ export async function PUT(request: Request) {
       qualityProfileId,
       metadataProfileId,
 
-      searchAfterAdd:
-        body.searchAfterAdd ?? true,
+      searchAfterAdd: body.searchAfterAdd ?? true,
     });
 
     return NextResponse.json({
