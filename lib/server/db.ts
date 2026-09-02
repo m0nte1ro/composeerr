@@ -15,8 +15,7 @@ type ComposeerrDatabase = ReturnType<typeof createDatabase>;
 
 function createDatabase() {
   const dataDirectory =
-    process.env.COMPOSEERR_DATA_DIR ??
-    path.join(process.cwd(), "data");
+    process.env.COMPOSEERR_DATA_DIR ?? path.join(process.cwd(), "data");
 
   fs.mkdirSync(dataDirectory, {
     recursive: true,
