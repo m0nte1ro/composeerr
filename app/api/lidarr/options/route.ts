@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  getLidarrOptions,
-  LidarrRequestError,
-} from "@/lib/server/lidarr-client";
+import { getLidarrOptions, LidarrRequestError } from "@/lib/server/lidarr";
 
 import { getLidarrSettings } from "@/lib/server/lidarr-settings";
 

@@ -2,58 +2,46 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-type ComposeerrDatabase =
-  ReturnType<typeof createDatabase>;
+function isSqliteBusy(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "SQLITE_BUSY"
+  );
+}
+
+type ComposeerrDatabase = ReturnType<typeof createDatabase>;
 
 function createDatabase() {
   const dataDirectory =
-    process.env.COMPOSEERR_DATA_DIR ??
-    path.join(
-      process.cwd(),
-      "data",
+    process.env.COMPOSEERR_DATA_DIR ?? path.join(process.cwd(), "data");
+
+  fs.mkdirSync(dataDirectory, {
+    recursive: true,
+  });
+
+  const databasePath = path.join(dataDirectory, "composeerr.db");
+
+  const database = new Database(databasePath, {
+    timeout: 5000,
+  });
+
+  database.pragma("busy_timeout = 5000");
+
+  try {
+    database.pragma("journal_mode = WAL");
+  } catch (error) {
+    if (!isSqliteBusy(error)) {
+      throw error;
+    }
+
+    console.warn(
+      "Composeerr DB lock detected while enabling WAL; continuing with existing mode.",
     );
+  }
 
-  fs.mkdirSync(
-    dataDirectory,
-    {
-      recursive: true,
-    },
-  );
-
-  const databasePath =
-    path.join(
-      dataDirectory,
-      "composeerr.db",
-    );
-
-  const database =
-    new Database(
-      databasePath,
-    );
-
-  /*
-   * Wait briefly rather than immediately failing when
-   * another SQLite connection temporarily owns a lock.
-   */
-  database.pragma(
-    "busy_timeout = 5000",
-  );
-
-  /*
-   * WAL is appropriate for Composeerr because reads and
-   * writes may happen concurrently from different requests.
-   *
-   * This now runs only when the database is actually used,
-   * rather than when this module is imported during
-   * `next build`.
-   */
-  database.pragma(
-    "journal_mode = WAL",
-  );
-
-  database.pragma(
-    "foreign_keys = ON",
-  );
+  database.pragma("foreign_keys = ON");
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -66,11 +54,9 @@ function createDatabase() {
   return database;
 }
 
-const globalForDatabase =
-  globalThis as unknown as {
-    composeerrDatabase?:
-      ComposeerrDatabase;
-  };
+const globalForDatabase = globalThis as unknown as {
+  composeerrDatabase?: ComposeerrDatabase;
+};
 
 /*
  * Lazily create the SQLite connection.
@@ -80,19 +66,12 @@ const globalForDatabase =
  * collects page data. Merely importing this module must
  * therefore NOT open or initialise SQLite.
  */
-export function getDatabase():
-  ComposeerrDatabase {
-  if (
-    !globalForDatabase
-      .composeerrDatabase
-  ) {
-    globalForDatabase
-      .composeerrDatabase =
-      createDatabase();
+export function getDatabase(): ComposeerrDatabase {
+  if (!globalForDatabase.composeerrDatabase) {
+    globalForDatabase.composeerrDatabase = createDatabase();
   }
 
-  return globalForDatabase
-    .composeerrDatabase;
+  return globalForDatabase.composeerrDatabase;
 }
 
 /*
@@ -106,54 +85,26 @@ export function getDatabase():
  * Accessing a property/method is what causes the real
  * database connection to be created.
  */
-export const db =
-  new Proxy(
-    {} as ComposeerrDatabase,
-    {
-      get(
-        _target,
-        property,
-      ) {
-        const database =
-          getDatabase();
+export const db = new Proxy({} as ComposeerrDatabase, {
+  get(_target, property) {
+    const database = getDatabase();
 
-        const value =
-          Reflect.get(
-            database,
-            property,
-            database,
-          );
+    const value = Reflect.get(database, property, database);
 
-        /*
-         * better-sqlite3 methods rely on their instance as
-         * `this`, so bind methods back to the actual DB.
-         */
-        if (
-          typeof value ===
-          "function"
-        ) {
-          return value.bind(
-            database,
-          );
-        }
+    /*
+     * better-sqlite3 methods rely on their instance as
+     * `this`, so bind methods back to the actual DB.
+     */
+    if (typeof value === "function") {
+      return value.bind(database);
+    }
 
-        return value;
-      },
+    return value;
+  },
 
-      set(
-        _target,
-        property,
-        value,
-      ) {
-        const database =
-          getDatabase();
+  set(_target, property, value) {
+    const database = getDatabase();
 
-        return Reflect.set(
-          database,
-          property,
-          value,
-          database,
-        );
-      },
-    },
-  );
+    return Reflect.set(database, property, value, database);
+  },
+});

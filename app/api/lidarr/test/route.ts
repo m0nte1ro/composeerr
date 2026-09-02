@@ -5,7 +5,7 @@ import {
   getLidarrStatus,
   LidarrRequestError,
   normalizeLidarrUrl,
-} from "@/lib/server/lidarr-client";
+} from "@/lib/server/lidarr";
 
 import { getLidarrSettings } from "@/lib/server/lidarr-settings";
 
@@ -35,14 +35,9 @@ export async function POST(request: Request) {
 
   const existing = getLidarrSettings();
 
-  const url = normalizeLidarrUrl(
-    body.url ?? existing?.url ?? "",
-  );
+  const url = normalizeLidarrUrl(body.url ?? existing?.url ?? "");
 
-  const apiKey =
-    body.apiKey?.trim() ||
-    existing?.apiKey ||
-    "";
+  const apiKey = body.apiKey?.trim() || existing?.apiKey || "";
 
   if (!url) {
     return NextResponse.json(
