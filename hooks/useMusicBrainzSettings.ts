@@ -119,6 +119,32 @@ export function useMusicBrainzSettings() {
     }
   }, [getPayload]);
 
+  const testConnectionValues = useCallback(
+    async (payload: MusicBrainzSettingsPayload) => {
+      setConnectionState({ status: "testing" });
+      setSaveState("idle");
+
+      try {
+        await testMusicBrainzConnection(payload);
+        setConnectionState({
+          status: "success",
+          title: "MusicBrainz is reachable.",
+          message: "The configured Web Service endpoint responded successfully.",
+        });
+      } catch (error) {
+        setConnectionState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "MusicBrainz connection test failed.",
+        });
+        throw error;
+      }
+    },
+    [],
+  );
+
   const saveSettings = useCallback(async () => {
     setSaveState("saving");
 
@@ -138,6 +164,29 @@ export function useMusicBrainzSettings() {
       });
     }
   }, [applyPublicSettings, getPayload]);
+
+  const saveConnectionValues = useCallback(
+    async (payload: MusicBrainzSettingsPayload) => {
+      setSaveState("saving");
+
+      try {
+        applyPublicSettings(await saveMusicBrainzSettings(payload));
+        setSaveState("saved");
+        window.setTimeout(() => setSaveState("idle"), 1800);
+      } catch (error) {
+        setSaveState("error");
+        setConnectionState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Could not save MusicBrainz settings.",
+        });
+        throw error;
+      }
+    },
+    [applyPublicSettings],
+  );
 
   const resetSettings = useCallback(async () => {
     setSaveState("saving");
@@ -207,7 +256,9 @@ export function useMusicBrainzSettings() {
     canSave: fieldsAreValid && saveState !== "saving",
     markAsEdited,
     testConnection,
+    testConnectionValues,
     saveSettings,
+    saveConnectionValues,
     resetSettings,
   };
 }

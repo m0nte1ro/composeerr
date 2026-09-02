@@ -20,7 +20,6 @@ const PROVIDERS: Record<
     name: string;
     description: string;
     defaultUrl: string;
-    nativeAuthLabel: string;
     nativeSecretLabel: string;
     nativeSecretPlaceholder: string;
   }
@@ -29,7 +28,6 @@ const PROVIDERS: Record<
     name: "Last.fm",
     description: "Metadata, popularity signals, and future recommendation capabilities.",
     defaultUrl: DEFAULT_METADATA_PROVIDER_URLS.lastfm,
-    nativeAuthLabel: "Last.fm API Key",
     nativeSecretLabel: "API Key",
     nativeSecretPlaceholder: "Last.fm API key",
   },
@@ -37,7 +35,6 @@ const PROVIDERS: Record<
     name: "Discogs",
     description: "Release metadata and detailed release information.",
     defaultUrl: DEFAULT_METADATA_PROVIDER_URLS.discogs,
-    nativeAuthLabel: "Discogs Personal Token",
     nativeSecretLabel: "Personal Access Token",
     nativeSecretPlaceholder: "Discogs personal access token",
   },
@@ -45,7 +42,6 @@ const PROVIDERS: Record<
     name: "TheAudioDB",
     description: "Supplemental metadata and artwork from one shared provider account.",
     defaultUrl: DEFAULT_METADATA_PROVIDER_URLS.theaudiodb,
-    nativeAuthLabel: "TheAudioDB API Key",
     nativeSecretLabel: "API Key",
     nativeSecretPlaceholder: "TheAudioDB API key",
   },
@@ -128,7 +124,13 @@ export function MetadataSettingsPageClient() {
               <ApiProviderCard
                 key={provider.key}
                 providerId={`metadata-${provider.key}`}
-                {...definition}
+                name={definition.name}
+                description={definition.description}
+                defaultUrl={definition.defaultUrl}
+                nativeCredential={{
+                  label: definition.nativeSecretLabel,
+                  placeholder: definition.nativeSecretPlaceholder,
+                }}
                 enabled={provider.enabled}
                 priority={provider.order}
                 url={provider.url}
@@ -149,7 +151,13 @@ export function MetadataSettingsPageClient() {
             <ApiProviderCard
               key={`draft-${draft}`}
               providerId={`metadata-${draft}`}
-              {...PROVIDERS[draft]}
+              name={PROVIDERS[draft].name}
+              description={PROVIDERS[draft].description}
+              defaultUrl={PROVIDERS[draft].defaultUrl}
+              nativeCredential={{
+                label: PROVIDERS[draft].nativeSecretLabel,
+                placeholder: PROVIDERS[draft].nativeSecretPlaceholder,
+              }}
               enabled
               authMode="native"
               hasSavedNativeSecret={false}

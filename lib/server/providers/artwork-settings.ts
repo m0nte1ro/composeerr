@@ -325,7 +325,10 @@ function resolveFanart(payload: Extract<ArtworkProviderPayload, { key: "fanart" 
     enabled: payload.enabled,
     url: normalizeProviderUrl(payload.url, "Fanart.tv"),
     authMode: payload.authMode,
-    nativeSecret: "",
+    nativeSecret:
+      typeof payload.nativeSecret === "string"
+        ? payload.nativeSecret
+        : existing?.nativeSecret ?? "",
     username: "",
     password: "",
     headerName: "",
@@ -333,13 +336,6 @@ function resolveFanart(payload: Extract<ArtworkProviderPayload, { key: "fanart" 
   };
 
   if (settings.authMode === "native") {
-    settings.nativeSecret =
-      typeof payload.nativeSecret === "string"
-        ? payload.nativeSecret
-        : existing?.authMode === "native"
-          ? existing.nativeSecret
-          : "";
-
     if (!settings.nativeSecret) {
       throw new ArtworkProviderSettingsError("Fanart.tv API key is required.");
     }

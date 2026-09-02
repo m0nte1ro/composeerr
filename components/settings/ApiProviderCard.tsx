@@ -8,7 +8,12 @@ import { SecretField } from "@/components/settings/SecretField";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import type { CredentialProviderAuthMode } from "@/lib/providers/types";
+import type {
+    ApiAuthMode,
+    CredentialProviderAuthMode,
+} from "@/lib/providers/types";
+
+type CustomizationMode = "default" | ApiAuthMode;
 
 type ConnectionState =
     | { status: "idle" }
@@ -32,10 +37,14 @@ type ApiProviderCardProps = {
     name: string;
     description: string;
     defaultUrl: string;
-    nativeAuthLabel: string;
-    nativeSecretLabel: string;
-    nativeSecretPlaceholder: string;
+    defaultAuthMode?: "native" | "none";
+    nativeCredential?: {
+        label: string;
+        placeholder: string;
+    };
     enabled: boolean;
+    showEnabled?: boolean;
+    customized?: boolean;
     url?: string;
     authMode?: CredentialProviderAuthMode;
     username?: string;
@@ -48,6 +57,7 @@ type ApiProviderCardProps = {
     onSave: (values: ApiProviderValues) => Promise<void>;
     onTest: (values: ApiProviderValues) => Promise<void>;
     onRemove?: () => Promise<void>;
+    onReset?: () => Promise<void>;
     onCancelCreate?: () => void;
 };
 
@@ -56,10 +66,11 @@ export function ApiProviderCard({
     name,
     description,
     defaultUrl,
-    nativeAuthLabel,
-    nativeSecretLabel,
-    nativeSecretPlaceholder,
+    defaultAuthMode = "native",
+    nativeCredential,
     enabled: initialEnabled,
+    showEnabled = true,
+    customized = false,
     url: initialUrl = defaultUrl,
     authMode: initialAuthMode = "native",
     username: initialUsername = "",
@@ -72,12 +83,20 @@ export function ApiProviderCard({
     onSave,
     onTest,
     onRemove,
+    onReset,
     onCancelCreate,
 }: ApiProviderCardProps) {
     const [enabled, setEnabled] = useState(initialEnabled);
     const [url, setUrl] = useState(initialUrl);
-    const [authMode, setAuthMode] =
-        useState<CredentialProviderAuthMode>(initialAuthMode);
+    const [customizationMode, setCustomizationMode] =
+        useState<CustomizationMode>(
+            initialAuthMode === defaultAuthMode && initialUrl === defaultUrl
+                ? "default"
+                : initialAuthMode === "native"
+                    ? "default"
+                    : initialAuthMode,
+        );
+    const [customizing, setCustomizing] = useState(false);
     const [nativeSecret, setNativeSecret] = useState("");
     const [editingNativeSecret, setEditingNativeSecret] = useState(false);
     const [showNativeSecret, setShowNativeSecret] = useState(false);
@@ -102,20 +121,23 @@ export function ApiProviderCard({
     }
 
     function values(): ApiProviderValues {
+        const effectiveAuthMode =
+            customizationMode === "default" ? defaultAuthMode : customizationMode;
+
         return {
             enabled,
-            url,
-            authMode,
+            url: customizationMode === "default" ? defaultUrl : url,
+            authMode: effectiveAuthMode,
             nativeSecret:
-                authMode === "native" && nativeSecret.length > 0
-                    ? nativeSecret
-                    : undefined,
-            username: authMode === "basic" ? username : undefined,
+                nativeSecret.length > 0 ? nativeSecret : undefined,
+            username: effectiveAuthMode === "basic" ? username : undefined,
             password:
-                authMode === "basic" && password.length > 0 ? password : undefined,
-            headerName: authMode === "header" ? headerName : undefined,
+                effectiveAuthMode === "basic" && password.length > 0
+                    ? password
+                    : undefined,
+            headerName: effectiveAuthMode === "header" ? headerName : undefined,
             headerSecret:
-                authMode === "header" && headerSecret.length > 0
+                effectiveAuthMode === "header" && headerSecret.length > 0
                     ? headerSecret
                     : undefined,
         };
@@ -159,6 +181,7 @@ export function ApiProviderCard({
         try {
             await onSave(values());
             clearSecretEditors();
+            setCustomizing(false);
             setSaveMessage("Saved");
         } catch (error) {
             setSaveMessage(error instanceof Error ? error.message : "Save failed.");
@@ -182,19 +205,54 @@ export function ApiProviderCard({
         }
     }
 
+    async function resetCustomization() {
+        setSaving(true);
+        setSaveMessage("");
+
+        try {
+            if (onReset) {
+                await onReset();
+            } else {
+                await onSave({
+                    ...values(),
+                    url: defaultUrl,
+                    authMode: defaultAuthMode,
+                    username: undefined,
+                    password: undefined,
+                    headerName: undefined,
+                    headerSecret: undefined,
+                });
+            }
+
+            setUrl(defaultUrl);
+            setCustomizationMode("default");
+            setUsername("");
+            setHeaderName("");
+            clearSecretEditors();
+            setCustomizing(false);
+            setSaveMessage("Saved");
+        } catch (error) {
+            setSaveMessage(error instanceof Error ? error.message : "Reset failed.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    const effectiveAuthMode =
+        customizationMode === "default" ? defaultAuthMode : customizationMode;
     const hasRequiredSecret =
-        authMode === "native"
+        effectiveAuthMode === "native"
             ? Boolean(nativeSecret) || hasSavedNativeSecret
-            : authMode === "basic"
+            : effectiveAuthMode === "basic"
                 ? Boolean(password) || hasSavedPassword
-                : authMode === "header"
+                : effectiveAuthMode === "header"
                     ? Boolean(headerSecret) || hasSavedHeaderSecret
                     : true;
     const fieldsAreValid =
         Boolean(url.trim()) &&
         hasRequiredSecret &&
-        (authMode !== "basic" || Boolean(username.trim())) &&
-        (authMode !== "header" || Boolean(headerName.trim()));
+        (effectiveAuthMode !== "basic" || Boolean(username.trim())) &&
+        (effectiveAuthMode !== "header" || Boolean(headerName.trim()));
 
     return (
         <ProviderCard>
@@ -209,67 +267,36 @@ export function ApiProviderCard({
                     <p>{description}</p>
                 </div>
 
-                <label className="provider-enabled-toggle">
-                    <Input
-                        type="checkbox"
-                        checked={enabled}
-                        onChange={(event) => {
-                            setEnabled(event.target.checked);
-                            markAsEdited();
-                        }}
-                    />
-                    <span>{enabled ? "Enabled" : "Disabled"}</span>
-                </label>
+                {showEnabled ? (
+                    <label className="provider-enabled-toggle">
+                        <Input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(event) => {
+                                setEnabled(event.target.checked);
+                                markAsEdited();
+                            }}
+                        />
+                        <span>{enabled ? "Enabled" : "Disabled"}</span>
+                    </label>
+                ) : null}
             </div>
 
             <div className="provider-card-body">
-                <div className="settings-field">
-                    <label htmlFor={`${providerId}-url`}>Endpoint</label>
-                    <Input
-                        id={`${providerId}-url`}
-                        type="url"
-                        value={url}
-                        placeholder={defaultUrl}
-                        autoComplete="off"
-                        onChange={(event) => {
-                            setUrl(event.target.value);
-                            markAsEdited();
-                        }}
-                    />
-                    <span>Use the default service or an API-compatible endpoint.</span>
-                </div>
-
-                <div className="settings-field">
-                    <label htmlFor={`${providerId}-auth-mode`}>Authentication</label>
-                    <Select
-                        id={`${providerId}-auth-mode`}
-                        value={authMode}
-                        onChange={(event) => {
-                            setAuthMode(event.target.value as CredentialProviderAuthMode);
-                            markAsEdited();
-                        }}
-                    >
-                        <option value="native">{nativeAuthLabel}</option>
-                        <option value="none">None</option>
-                        <option value="basic">Basic Auth</option>
-                        <option value="header">API Key / Header</option>
-                    </Select>
-                </div>
-
-                {authMode === "native" ? (
+                {nativeCredential ? (
                     <div className="settings-auth-fields">
                         <div className="settings-field">
                             <label htmlFor={`${providerId}-native-secret`}>
-                                {nativeSecretLabel}
+                                {nativeCredential.label}
                             </label>
                             <SecretField
                                 id={`${providerId}-native-secret`}
-                                ariaLabel={`Saved ${name} ${nativeSecretLabel}`}
+                                ariaLabel={`Saved ${name} ${nativeCredential.label}`}
                                 hasSavedValue={hasSavedNativeSecret}
                                 isEditing={editingNativeSecret}
                                 showValue={showNativeSecret}
                                 value={nativeSecret}
-                                placeholder={nativeSecretPlaceholder}
+                                placeholder={nativeCredential.placeholder}
                                 onStartEditing={() => {
                                     setEditingNativeSecret(true);
                                     setNativeSecret("");
@@ -291,9 +318,57 @@ export function ApiProviderCard({
                             <span>The saved credential is never returned to the browser.</span>
                         </div>
                     </div>
-                ) : null}
+                ) : (
+                    <div className="settings-note">
+                        <strong>
+                            {customized ? "Using customized endpoint" : "Using default endpoint"}
+                        </strong>
+                    </div>
+                )}
 
-                {authMode === "basic" ? (
+                {customizing ? (
+                    <div className="provider-customization-fields">
+                        <div className="settings-field">
+                            <label htmlFor={`${providerId}-url`}>Endpoint</label>
+                            <Input
+                                id={`${providerId}-url`}
+                                type="url"
+                                value={
+                                    customizationMode === "default" ? defaultUrl : url
+                                }
+                                placeholder={defaultUrl}
+                                disabled={customizationMode === "default"}
+                                autoComplete="off"
+                                onChange={(event) => {
+                                    setUrl(event.target.value);
+                                    markAsEdited();
+                                }}
+                            />
+                            <span>Use the default service or an API-compatible endpoint.</span>
+                        </div>
+
+                        <div className="settings-field">
+                            <label htmlFor={`${providerId}-auth-mode`}>Authentication</label>
+                            <Select
+                                id={`${providerId}-auth-mode`}
+                                value={customizationMode}
+                                onChange={(event) => {
+                                    const mode = event.target.value as CustomizationMode;
+                                    setCustomizationMode(mode);
+                                    if (mode === "default") {
+                                        setUrl(defaultUrl);
+                                    }
+                                    markAsEdited();
+                                }}
+                            >
+                                <option value="default">Default (recommended)</option>
+                                <option value="none">None</option>
+                                <option value="basic">Basic Auth</option>
+                                <option value="header">API Key / Header</option>
+                            </Select>
+                        </div>
+
+                {effectiveAuthMode === "basic" ? (
                     <div className="settings-auth-fields">
                         <div className="settings-field">
                             <label htmlFor={`${providerId}-username`}>Username</label>
@@ -338,7 +413,7 @@ export function ApiProviderCard({
                     </div>
                 ) : null}
 
-                {authMode === "header" ? (
+                {effectiveAuthMode === "header" ? (
                     <div className="settings-auth-fields">
                         <div className="settings-field">
                             <label htmlFor={`${providerId}-header-name`}>Header name</label>
@@ -385,6 +460,8 @@ export function ApiProviderCard({
                         </div>
                     </div>
                 ) : null}
+                    </div>
+                ) : null}
 
                 <ConnectionTestStatus state={connectionState} />
 
@@ -398,6 +475,23 @@ export function ApiProviderCard({
                             Cancel
                         </Button>
                     ) : null}
+
+                    {customizing ? (
+                        <Button
+                            variant="text"
+                            disabled={saving}
+                            onClick={() => void resetCustomization()}
+                        >
+                            Reset to default
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="text"
+                            onClick={() => setCustomizing(true)}
+                        >
+                            Customize
+                        </Button>
+                    )}
 
                     {saveMessage ? (
                         <span className={saveMessage === "Saved" ? "save-feedback" : "form-error"}>

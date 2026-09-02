@@ -1,25 +1,32 @@
 "use client";
 
-import type { FormEvent } from "react";
-
-import { ConnectionTestStatus } from "@/components/settings/ConnectionTestStatus";
-import { ProviderCard } from "@/components/settings/ProviderCard";
-import { SecretField } from "@/components/settings/SecretField";
+import {
+  ApiProviderCard,
+  type ApiProviderValues,
+} from "@/components/settings/ApiProviderCard";
 import { SettingsPageHeader } from "@/components/settings/SettingsPageHeader";
-import { SettingsSection } from "@/components/settings/SettingsSection";
-import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { useMusicBrainzSettings } from "@/hooks/useMusicBrainzSettings";
+import {
+  DEFAULT_MUSICBRAINZ_URL,
+  type MusicBrainzSettingsPayload,
+} from "@/lib/content/musicbrainz-settings";
+
+function toMusicBrainzPayload(
+  values: ApiProviderValues,
+): MusicBrainzSettingsPayload {
+  return {
+    url: values.url,
+    authMode: values.authMode === "native" ? "none" : values.authMode,
+    username: values.username,
+    password: values.password,
+    headerName: values.headerName,
+    headerSecret: values.headerSecret,
+  };
+}
 
 export function ContentSettingsPageClient() {
   const settings = useMusicBrainzSettings();
-
-  function handleTest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void settings.testConnection();
-  }
 
   return (
     <>
@@ -41,211 +48,30 @@ export function ContentSettingsPageClient() {
           />
         </section>
       ) : (
-        <ProviderCard>
-          <SettingsSection
-            title="MusicBrainz"
-            description="Composeerr uses a MusicBrainz-compatible HTTP Web Service as its canonical content provider."
-            headerRight={
-              settings.connectionState.status === "success" ? (
-                <div className="connection-chip connection-chip-success">
-                  <span className="status-dot" />
-                  Connected
-                </div>
-              ) : null
-            }
-          >
-            <form onSubmit={handleTest}>
-              <div className="settings-field">
-                <label htmlFor="musicbrainz-url">Endpoint</label>
-                <Input
-                  id="musicbrainz-url"
-                  type="url"
-                  value={settings.url}
-                  onChange={(event) => {
-                    settings.setUrl(event.target.value);
-                    settings.markAsEdited();
-                  }}
-                  placeholder="https://musicbrainz.org/ws/2"
-                  autoComplete="off"
-                />
-                <span>
-                  Use the public service or an HTTP endpoint exposed by your private
-                  MusicBrainz-compatible mirror.
-                </span>
-              </div>
-
-              <div className="settings-field">
-                <label htmlFor="musicbrainz-auth-mode">Authentication</label>
-                <Select
-                  id="musicbrainz-auth-mode"
-                  value={settings.authMode}
-                  onChange={(event) => {
-                    settings.setAuthMode(
-                      event.target.value as "none" | "basic" | "header",
-                    );
-                    settings.markAsEdited();
-                  }}
-                >
-                  <option value="none">None</option>
-                  <option value="basic">Basic Auth</option>
-                  <option value="header">API Key / Header</option>
-                </Select>
-              </div>
-
-              {settings.authMode === "basic" && (
-                <div className="settings-auth-fields">
-                  <div className="settings-field">
-                    <label htmlFor="musicbrainz-username">Username</label>
-                    <Input
-                      id="musicbrainz-username"
-                      value={settings.username}
-                      onChange={(event) => {
-                        settings.setUsername(event.target.value);
-                        settings.markAsEdited();
-                      }}
-                      autoComplete="username"
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label htmlFor="musicbrainz-password">Password</label>
-                    <SecretField
-                      id="musicbrainz-password"
-                      ariaLabel="Saved MusicBrainz password"
-                      hasSavedValue={settings.hasSavedPassword}
-                      isEditing={settings.editingPassword}
-                      showValue={settings.showPassword}
-                      value={settings.password}
-                      placeholder="Password"
-                      onStartEditing={() => {
-                        settings.setEditingPassword(true);
-                        settings.setPassword("");
-                        settings.setShowPassword(false);
-                      }}
-                      onCancelEditing={() => {
-                        settings.setEditingPassword(false);
-                        settings.setPassword("");
-                        settings.setShowPassword(false);
-                      }}
-                      onToggleVisibility={() =>
-                        settings.setShowPassword((current) => !current)
-                      }
-                      onChange={(value) => {
-                        settings.setPassword(value);
-                        settings.markAsEdited();
-                      }}
-                    />
-                    <span>The saved password is never returned to the browser.</span>
-                  </div>
-                </div>
-              )}
-
-              {settings.authMode === "header" && (
-                <div className="settings-auth-fields">
-                  <div className="settings-field">
-                    <label htmlFor="musicbrainz-header-name">Header name</label>
-                    <Input
-                      id="musicbrainz-header-name"
-                      value={settings.headerName}
-                      onChange={(event) => {
-                        settings.setHeaderName(event.target.value);
-                        settings.markAsEdited();
-                      }}
-                      placeholder="X-API-Key"
-                      autoComplete="off"
-                    />
-                  </div>
-
-                  <div className="settings-field">
-                    <label htmlFor="musicbrainz-header-secret">API key / value</label>
-                    <SecretField
-                      id="musicbrainz-header-secret"
-                      ariaLabel="Saved MusicBrainz header value"
-                      hasSavedValue={settings.hasSavedHeaderSecret}
-                      isEditing={settings.editingHeaderSecret}
-                      showValue={settings.showHeaderSecret}
-                      value={settings.headerSecret}
-                      placeholder="API key or header value"
-                      onStartEditing={() => {
-                        settings.setEditingHeaderSecret(true);
-                        settings.setHeaderSecret("");
-                        settings.setShowHeaderSecret(false);
-                      }}
-                      onCancelEditing={() => {
-                        settings.setEditingHeaderSecret(false);
-                        settings.setHeaderSecret("");
-                        settings.setShowHeaderSecret(false);
-                      }}
-                      onToggleVisibility={() =>
-                        settings.setShowHeaderSecret((current) => !current)
-                      }
-                      onChange={(value) => {
-                        settings.setHeaderSecret(value);
-                        settings.markAsEdited();
-                      }}
-                    />
-                    <span>The saved header value is never returned to the browser.</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="settings-note">
-                <strong>Local mirrors:</strong>
-                <span>
-                  Composeerr expects a MusicBrainz-compatible Web Service endpoint. A
-                  local mirror must expose its HTTP API; Composeerr does not connect
-                  directly to the MusicBrainz PostgreSQL database.
-                </span>
-              </div>
-
-              <ConnectionTestStatus state={settings.connectionState} />
-
-              <div className="settings-actions settings-actions-split">
-                <Button
-                  variant="secondary"
-                  type="submit"
-                  disabled={!settings.canTest}
-                >
-                  {settings.connectionState.status === "testing"
-                    ? "Testing..."
-                    : "Test Connection"}
-                </Button>
-
-                <div className="settings-save-group">
-                  {settings.customized && (
-                    <Button
-                      variant="text"
-                      type="button"
-                      disabled={settings.saveState === "saving"}
-                      onClick={() => {
-                        if (window.confirm("Reset MusicBrainz to the public Composeerr default and remove saved credentials?")) {
-                          void settings.resetSettings();
-                        }
-                      }}
-                    >
-                      Reset to default
-                    </Button>
-                  )}
-                  {settings.saveState === "saved" && (
-                    <span className="save-feedback">✓ Saved</span>
-                  )}
-                  {settings.saveState === "error" && (
-                    <span className="save-feedback save-feedback-error">
-                      Save failed
-                    </span>
-                  )}
-                  <Button
-                    type="button"
-                    disabled={!settings.canSave}
-                    onClick={() => void settings.saveSettings()}
-                  >
-                    {settings.saveState === "saving" ? "Saving..." : "Save Settings"}
-                  </Button>
-                </div>
-              </div>
-            </form>
-          </SettingsSection>
-        </ProviderCard>
+        <ApiProviderCard
+          providerId="musicbrainz"
+          name="MusicBrainz"
+          description="Composeerr uses a MusicBrainz-compatible HTTP Web Service as its canonical content provider."
+          defaultUrl={DEFAULT_MUSICBRAINZ_URL}
+          defaultAuthMode="none"
+          enabled
+          showEnabled={false}
+          customized={settings.customized}
+          url={settings.url}
+          authMode={settings.authMode}
+          username={settings.username}
+          headerName={settings.headerName}
+          hasSavedNativeSecret={false}
+          hasSavedPassword={settings.hasSavedPassword}
+          hasSavedHeaderSecret={settings.hasSavedHeaderSecret}
+          onSave={async (values) => {
+            await settings.saveConnectionValues(toMusicBrainzPayload(values));
+          }}
+          onTest={async (values) => {
+            await settings.testConnectionValues(toMusicBrainzPayload(values));
+          }}
+          onReset={settings.resetSettings}
+        />
       )}
     </>
   );

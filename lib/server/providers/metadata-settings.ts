@@ -233,7 +233,10 @@ function resolvePayload(
     enabled: payload.enabled,
     url: normalizeProviderUrl(payload.url, name),
     authMode: payload.authMode,
-    nativeSecret: "",
+    nativeSecret:
+      typeof payload.nativeSecret === "string"
+        ? payload.nativeSecret
+        : existing?.nativeSecret ?? "",
     username: "",
     password: "",
     headerName: "",
@@ -241,13 +244,6 @@ function resolvePayload(
   };
 
   if (provider.authMode === "native") {
-    provider.nativeSecret =
-      typeof payload.nativeSecret === "string"
-        ? payload.nativeSecret
-        : existing?.authMode === "native"
-          ? existing.nativeSecret
-          : "";
-
     if (!provider.nativeSecret) {
       throw new MetadataProviderSettingsError(`${name} credentials are required.`);
     }
