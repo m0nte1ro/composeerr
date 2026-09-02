@@ -51,6 +51,7 @@ export function MetadataSettingsPageClient() {
   const providers = useMetadataProviders();
   const [selected, setSelected] = useState<MetadataProviderKey | "">("");
   const [draft, setDraft] = useState<MetadataProviderKey | null>(null);
+  const [recentlyAdded, setRecentlyAdded] = useState<MetadataProviderKey | null>(null);
 
   const available = providers.settings?.availableProviders ?? [];
   const selectedIsAvailable = Boolean(selected && available.includes(selected));
@@ -140,6 +141,7 @@ export function MetadataSettingsPageClient() {
                 hasSavedNativeSecret={provider.hasNativeSecret}
                 hasSavedPassword={provider.hasPassword}
                 hasSavedHeaderSecret={provider.hasHeaderSecret}
+                initiallySaved={provider.key === recentlyAdded}
                 onSave={(values) => providers.update({ key: provider.key, ...values })}
                 onTest={(values) => providers.test({ key: provider.key, ...values })}
                 onRemove={() => providers.remove(provider.key)}
@@ -163,8 +165,16 @@ export function MetadataSettingsPageClient() {
               hasSavedNativeSecret={false}
               createMode
               onSave={async (values) => {
-                await providers.add({ key: draft, ...values });
-                setDraft(null);
+                const providerKey = draft;
+                setRecentlyAdded(providerKey);
+
+                try {
+                  await providers.add({ key: providerKey, ...values });
+                  setDraft(null);
+                } catch (error) {
+                  setRecentlyAdded(null);
+                  throw error;
+                }
               }}
               onTest={(values) => providers.test({ key: draft, ...values })}
               onCancelCreate={() => setDraft(null)}

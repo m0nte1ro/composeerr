@@ -54,6 +54,7 @@ type ApiProviderCardProps = {
     hasSavedHeaderSecret?: boolean;
     priority?: number;
     createMode?: boolean;
+    initiallySaved?: boolean;
     onSave: (values: ApiProviderValues) => Promise<void>;
     onTest: (values: ApiProviderValues) => Promise<void>;
     onRemove?: () => Promise<void>;
@@ -70,7 +71,7 @@ export function ApiProviderCard({
     nativeCredential,
     enabled: initialEnabled,
     showEnabled = true,
-    customized = false,
+    customized,
     url: initialUrl = defaultUrl,
     authMode: initialAuthMode = "native",
     username: initialUsername = "",
@@ -80,6 +81,7 @@ export function ApiProviderCard({
     hasSavedHeaderSecret = false,
     priority,
     createMode = false,
+    initiallySaved = false,
     onSave,
     onTest,
     onRemove,
@@ -110,7 +112,7 @@ export function ApiProviderCard({
     const [showHeaderSecret, setShowHeaderSecret] = useState(false);
     const [saving, setSaving] = useState(false);
     const [removing, setRemoving] = useState(false);
-    const [saveMessage, setSaveMessage] = useState("");
+    const [saveMessage, setSaveMessage] = useState(initiallySaved ? "Saved" : "");
     const [connectionState, setConnectionState] = useState<ConnectionState>({
         status: "idle",
     });
@@ -253,6 +255,9 @@ export function ApiProviderCard({
         hasRequiredSecret &&
         (effectiveAuthMode !== "basic" || Boolean(username.trim())) &&
         (effectiveAuthMode !== "header" || Boolean(headerName.trim()));
+    const usesCustomizedConnection =
+        customized ??
+        (initialUrl !== defaultUrl || initialAuthMode !== defaultAuthMode);
 
     return (
         <ProviderCard>
@@ -318,10 +323,12 @@ export function ApiProviderCard({
                             <span>The saved credential is never returned to the browser.</span>
                         </div>
                     </div>
-                ) : !nativeCredential ? (
+                ) : !createMode ? (
                     <div className="settings-note">
                         <strong>
-                            {customized ? "Using customized endpoint" : "Using default endpoint"}
+                            {usesCustomizedConnection
+                                ? "Using customized configuration"
+                                : "Using default configuration"}
                         </strong>
                     </div>
                 ) : null}

@@ -159,6 +159,11 @@
   padding: 24px;
 }
 
+.provider-card-body>.settings-note:first-child,
+.provider-card-body>.settings-auth-fields:first-child {
+  margin-top: 0;
+}
+
 .provider-customization-fields {
   margin-top: 24px;
   padding-top: 24px;
