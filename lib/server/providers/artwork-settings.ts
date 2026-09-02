@@ -140,7 +140,12 @@ function getStoredCoverArtArchiveSettings(): StoredCoverArtArchive | null {
 
 function getCoverArtArchiveSettings() {
   const stored = getStoredCoverArtArchiveSettings();
-  return { settings: stored ?? getDefaultCoverArtArchiveSettings(), customized: Boolean(stored) };
+  const settings = stored ?? getDefaultCoverArtArchiveSettings();
+  const customized =
+    settings.url !== DEFAULT_COVER_ART_ARCHIVE_URL ||
+    settings.authMode !== "none";
+
+  return { settings, customized };
 }
 
 export function getStoredFanartSettings(): StoredFanart | null {

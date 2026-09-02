@@ -100,7 +100,7 @@ export function ScheduledTaskCard({
           <div><dt>Result</dt><dd>{task.summary ?? "No runs recorded."}</dd></div>
         </dl>
 
-        <div className="provider-card-actions">
+        <div className="provider-card-actions scheduled-task-actions">
           {message ? (
             <span className={message === "Saved" ? "save-feedback" : "form-error"}>
               {message === "Saved" ? "✓ Saved" : message}

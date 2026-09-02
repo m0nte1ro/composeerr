@@ -283,7 +283,7 @@ export function ApiProviderCard({
             </div>
 
             <div className="provider-card-body">
-                {nativeCredential ? (
+                {nativeCredential && (createMode || customizing) ? (
                     <div className="settings-auth-fields">
                         <div className="settings-field">
                             <label htmlFor={`${providerId}-native-secret`}>
@@ -318,13 +318,13 @@ export function ApiProviderCard({
                             <span>The saved credential is never returned to the browser.</span>
                         </div>
                     </div>
-                ) : (
+                ) : !nativeCredential ? (
                     <div className="settings-note">
                         <strong>
                             {customized ? "Using customized endpoint" : "Using default endpoint"}
                         </strong>
                     </div>
-                )}
+                ) : null}
 
                 {customizing ? (
                     <div className="provider-customization-fields">
@@ -368,147 +368,151 @@ export function ApiProviderCard({
                             </Select>
                         </div>
 
-                {effectiveAuthMode === "basic" ? (
-                    <div className="settings-auth-fields">
-                        <div className="settings-field">
-                            <label htmlFor={`${providerId}-username`}>Username</label>
-                            <Input
-                                id={`${providerId}-username`}
-                                value={username}
-                                autoComplete="username"
-                                onChange={(event) => {
-                                    setUsername(event.target.value);
-                                    markAsEdited();
-                                }}
-                            />
-                        </div>
-                        <div className="settings-field">
-                            <label htmlFor={`${providerId}-password`}>Password</label>
-                            <SecretField
-                                id={`${providerId}-password`}
-                                ariaLabel={`Saved ${name} password`}
-                                hasSavedValue={hasSavedPassword}
-                                isEditing={editingPassword}
-                                showValue={showPassword}
-                                value={password}
-                                placeholder="Password"
-                                onStartEditing={() => {
-                                    setEditingPassword(true);
-                                    setPassword("");
-                                    setShowPassword(false);
-                                }}
-                                onCancelEditing={() => {
-                                    setEditingPassword(false);
-                                    setPassword("");
-                                    setShowPassword(false);
-                                }}
-                                onToggleVisibility={() => setShowPassword((current) => !current)}
-                                onChange={(value) => {
-                                    setPassword(value);
-                                    markAsEdited();
-                                }}
-                            />
-                            <span>The saved password is never returned to the browser.</span>
-                        </div>
-                    </div>
-                ) : null}
+                        {effectiveAuthMode === "basic" ? (
+                            <div className="settings-auth-fields">
+                                <div className="settings-field">
+                                    <label htmlFor={`${providerId}-username`}>Username</label>
+                                    <Input
+                                        id={`${providerId}-username`}
+                                        value={username}
+                                        autoComplete="username"
+                                        onChange={(event) => {
+                                            setUsername(event.target.value);
+                                            markAsEdited();
+                                        }}
+                                    />
+                                </div>
+                                <div className="settings-field">
+                                    <label htmlFor={`${providerId}-password`}>Password</label>
+                                    <SecretField
+                                        id={`${providerId}-password`}
+                                        ariaLabel={`Saved ${name} password`}
+                                        hasSavedValue={hasSavedPassword}
+                                        isEditing={editingPassword}
+                                        showValue={showPassword}
+                                        value={password}
+                                        placeholder="Password"
+                                        onStartEditing={() => {
+                                            setEditingPassword(true);
+                                            setPassword("");
+                                            setShowPassword(false);
+                                        }}
+                                        onCancelEditing={() => {
+                                            setEditingPassword(false);
+                                            setPassword("");
+                                            setShowPassword(false);
+                                        }}
+                                        onToggleVisibility={() => setShowPassword((current) => !current)}
+                                        onChange={(value) => {
+                                            setPassword(value);
+                                            markAsEdited();
+                                        }}
+                                    />
+                                    <span>The saved password is never returned to the browser.</span>
+                                </div>
+                            </div>
+                        ) : null}
 
-                {effectiveAuthMode === "header" ? (
-                    <div className="settings-auth-fields">
-                        <div className="settings-field">
-                            <label htmlFor={`${providerId}-header-name`}>Header name</label>
-                            <Input
-                                id={`${providerId}-header-name`}
-                                value={headerName}
-                                placeholder="X-API-Key"
-                                autoComplete="off"
-                                onChange={(event) => {
-                                    setHeaderName(event.target.value);
-                                    markAsEdited();
-                                }}
-                            />
-                        </div>
-                        <div className="settings-field">
-                            <label htmlFor={`${providerId}-header-secret`}>API key / value</label>
-                            <SecretField
-                                id={`${providerId}-header-secret`}
-                                ariaLabel={`Saved ${name} header value`}
-                                hasSavedValue={hasSavedHeaderSecret}
-                                isEditing={editingHeaderSecret}
-                                showValue={showHeaderSecret}
-                                value={headerSecret}
-                                placeholder="API key or header value"
-                                onStartEditing={() => {
-                                    setEditingHeaderSecret(true);
-                                    setHeaderSecret("");
-                                    setShowHeaderSecret(false);
-                                }}
-                                onCancelEditing={() => {
-                                    setEditingHeaderSecret(false);
-                                    setHeaderSecret("");
-                                    setShowHeaderSecret(false);
-                                }}
-                                onToggleVisibility={() =>
-                                    setShowHeaderSecret((current) => !current)
-                                }
-                                onChange={(value) => {
-                                    setHeaderSecret(value);
-                                    markAsEdited();
-                                }}
-                            />
-                            <span>The saved header value is never returned to the browser.</span>
-                        </div>
-                    </div>
-                ) : null}
+                        {effectiveAuthMode === "header" ? (
+                            <div className="settings-auth-fields">
+                                <div className="settings-field">
+                                    <label htmlFor={`${providerId}-header-name`}>Header name</label>
+                                    <Input
+                                        id={`${providerId}-header-name`}
+                                        value={headerName}
+                                        placeholder="X-API-Key"
+                                        autoComplete="off"
+                                        onChange={(event) => {
+                                            setHeaderName(event.target.value);
+                                            markAsEdited();
+                                        }}
+                                    />
+                                </div>
+                                <div className="settings-field">
+                                    <label htmlFor={`${providerId}-header-secret`}>API key / value</label>
+                                    <SecretField
+                                        id={`${providerId}-header-secret`}
+                                        ariaLabel={`Saved ${name} header value`}
+                                        hasSavedValue={hasSavedHeaderSecret}
+                                        isEditing={editingHeaderSecret}
+                                        showValue={showHeaderSecret}
+                                        value={headerSecret}
+                                        placeholder="API key or header value"
+                                        onStartEditing={() => {
+                                            setEditingHeaderSecret(true);
+                                            setHeaderSecret("");
+                                            setShowHeaderSecret(false);
+                                        }}
+                                        onCancelEditing={() => {
+                                            setEditingHeaderSecret(false);
+                                            setHeaderSecret("");
+                                            setShowHeaderSecret(false);
+                                        }}
+                                        onToggleVisibility={() =>
+                                            setShowHeaderSecret((current) => !current)
+                                        }
+                                        onChange={(value) => {
+                                            setHeaderSecret(value);
+                                            markAsEdited();
+                                        }}
+                                    />
+                                    <span>The saved header value is never returned to the browser.</span>
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
 
                 <ConnectionTestStatus state={connectionState} />
 
-                <div className="provider-card-actions">
-                    {onRemove ? (
-                        <Button variant="text" disabled={removing} onClick={() => void remove()}>
-                            {removing ? "Removing..." : "Remove"}
-                        </Button>
-                    ) : onCancelCreate ? (
-                        <Button variant="text" onClick={onCancelCreate}>
-                            Cancel
-                        </Button>
-                    ) : null}
+                <div className="provider-card-footer">
+                    <div className="provider-customization-actions">
+                        {customizing ? (
+                            <Button
+                                variant="text"
+                                disabled={saving}
+                                onClick={() => void resetCustomization()}
+                            >
+                                Reset to default
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="text"
+                                onClick={() => setCustomizing(true)}
+                            >
+                                Customize
+                            </Button>
+                        )}
+                    </div>
 
-                    {customizing ? (
+                    <div className="provider-card-actions">
+                        {onRemove ? (
+                            <Button variant="text" disabled={removing} onClick={() => void remove()}>
+                                {removing ? "Removing..." : "Remove"}
+                            </Button>
+                        ) : onCancelCreate ? (
+                            <Button variant="text" onClick={onCancelCreate}>
+                                Cancel
+                            </Button>
+                        ) : null}
+
+                        {saveMessage ? (
+                            <span className={saveMessage === "Saved" ? "save-feedback" : "form-error"}>
+                                {saveMessage === "Saved" ? "✓ Saved" : saveMessage}
+                            </span>
+                        ) : null}
+
                         <Button
-                            variant="text"
-                            disabled={saving}
-                            onClick={() => void resetCustomization()}
+                            variant="secondary"
+                            disabled={!fieldsAreValid || connectionState.status === "testing"}
+                            onClick={() => void testConnection()}
                         >
-                            Reset to default
+                            {connectionState.status === "testing" ? "Testing..." : "Test Connection"}
                         </Button>
-                    ) : (
-                        <Button
-                            variant="text"
-                            onClick={() => setCustomizing(true)}
-                        >
-                            Customize
+                        <Button disabled={!fieldsAreValid || saving} onClick={() => void save()}>
+                            {saving ? "Saving..." : createMode ? "Add Provider" : "Save Settings"}
                         </Button>
-                    )}
-
-                    {saveMessage ? (
-                        <span className={saveMessage === "Saved" ? "save-feedback" : "form-error"}>
-                            {saveMessage === "Saved" ? "✓ Saved" : saveMessage}
-                        </span>
-                    ) : null}
-
-                    <Button
-                        variant="secondary"
-                        disabled={!fieldsAreValid || connectionState.status === "testing"}
-                        onClick={() => void testConnection()}
-                    >
-                        {connectionState.status === "testing" ? "Testing..." : "Test Connection"}
-                    </Button>
-                    <Button disabled={!fieldsAreValid || saving} onClick={() => void save()}>
-                        {saving ? "Saving..." : createMode ? "Add Provider" : "Save Settings"}
-                    </Button>
+                    </div>
                 </div>
             </div>
         </ProviderCard>
