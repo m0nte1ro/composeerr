@@ -115,10 +115,11 @@ export function getMusicBrainzConnection(): MusicBrainzConnection {
 
 function toPublicSettings(
   settings: StoredMusicBrainzSettings,
-  configured: boolean,
+  customized: boolean,
 ): PublicMusicBrainzSettings {
   return {
-    configured,
+    available: true,
+    customized,
     url: settings.url,
     authMode: settings.authMode,
     username: settings.authMode === "basic" ? settings.username : "",
@@ -223,6 +224,11 @@ export function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload) {
   return toPublicSettings(settings, true);
 }
 
+export function resetMusicBrainzSettings() {
+  db.prepare("DELETE FROM app_settings WHERE key = ?").run(SETTINGS_KEY);
+  return getPublicMusicBrainzSettings();
+}
+
 export function getMusicBrainzCacheNamespace(
   connection: MusicBrainzConnection,
 ) {
@@ -250,10 +256,9 @@ export function getMusicBrainzHeaders(connection: MusicBrainzConnection) {
   return headers;
 }
 
-export async function testMusicBrainzConnection(
-  payload: MusicBrainzSettingsPayload,
+async function testResolvedMusicBrainzConnection(
+  connection: MusicBrainzConnection,
 ) {
-  const connection = resolveMusicBrainzSettings(payload);
   const url = new URL(connection.url + "/artist/");
   url.searchParams.set("query", "artist:MusicBrainz");
   url.searchParams.set("limit", "1");
@@ -296,4 +301,14 @@ export async function testMusicBrainzConnection(
       "The endpoint did not return a valid MusicBrainz response.",
     );
   }
+}
+
+export function testMusicBrainzConnection(
+  payload: MusicBrainzSettingsPayload,
+) {
+  return testResolvedMusicBrainzConnection(resolveMusicBrainzSettings(payload));
+}
+
+export function testCurrentMusicBrainzConnection() {
+  return testResolvedMusicBrainzConnection(getMusicBrainzConnection());
 }

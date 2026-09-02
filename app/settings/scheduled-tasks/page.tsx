@@ -1,10 +1,5 @@
-import { SettingsPlaceholder } from "@/components/settings/SettingsPlaceholder";
+import { ScheduledTasksSettingsPageClient } from "@/components/settings/ScheduledTasksSettingsPageClient";
 
 export default function ScheduledTasksSettingsPage() {
-  return (
-    <SettingsPlaceholder
-      title="Scheduled Tasks"
-      description="Manage recurring Composeerr maintenance and synchronization tasks."
-    />
-  );
+  return <ScheduledTasksSettingsPageClient />;
 }

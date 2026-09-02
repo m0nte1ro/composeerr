@@ -1,10 +1,5 @@
-import { SettingsPlaceholder } from "@/components/settings/SettingsPlaceholder";
+import { MetadataSettingsPageClient } from "@/components/settings/MetadataSettingsPageClient";
 
 export default function MetadataSettingsPage() {
-  return (
-    <SettingsPlaceholder
-      title="Metadata"
-      description="Configure optional providers that enrich canonical music content."
-    />
-  );
+  return <MetadataSettingsPageClient />;
 }

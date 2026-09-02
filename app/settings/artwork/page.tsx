@@ -1,10 +1,5 @@
-import { SettingsPlaceholder } from "@/components/settings/SettingsPlaceholder";
+import { ArtworkSettingsPageClient } from "@/components/settings/ArtworkSettingsPageClient";
 
 export default function ArtworkSettingsPage() {
-  return (
-    <SettingsPlaceholder
-      title="Artwork"
-      description="Configure artwork sources for albums and artists."
-    />
-  );
+  return <ArtworkSettingsPageClient />;
 }

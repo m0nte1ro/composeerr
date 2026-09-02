@@ -5,5 +5,5 @@ type ProviderCardProps = {
 };
 
 export function ProviderCard({ children }: ProviderCardProps) {
-  return <>{children}</>;
+  return <section className="provider-card">{children}</section>;
 }

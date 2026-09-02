@@ -55,6 +55,239 @@
   color: var(--foreground-subtle);
 }
 
+.provider-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.provider-card,
+.provider-add-bar {
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+  border-radius: 16px;
+
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.provider-card-header {
+  padding: 22px 24px;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-card-header h2 {
+  margin: 0;
+
+  font-size: 15px;
+}
+
+.provider-card-header p {
+  max-width: 480px;
+
+  margin: 6px 0 0;
+
+  color: var(--foreground-subtle);
+
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.provider-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.provider-priority,
+.task-status {
+  padding: 4px 7px;
+
+  border: 1px solid var(--border);
+  border-radius: 999px;
+
+  color: var(--foreground-subtle);
+
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.task-status-success {
+  border-color: rgba(74, 222, 128, 0.18);
+  color: var(--success);
+}
+
+.task-status-error {
+  border-color: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.task-status-running {
+  border-color: rgba(139, 124, 255, 0.28);
+  color: var(--accent);
+}
+
+.provider-enabled-toggle {
+  min-width: 92px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--foreground-muted);
+
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.provider-enabled-toggle input {
+  width: 16px;
+  height: 16px;
+
+  accent-color: var(--accent);
+}
+
+.provider-card-body {
+  padding: 24px;
+}
+
+.provider-card-actions {
+  margin-top: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.provider-card-actions .save-feedback,
+.provider-card-actions .form-error {
+  margin-right: auto;
+}
+
+.form-error {
+  color: #f87171;
+
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.provider-add-bar {
+  padding: 16px 18px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 230px) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.provider-add-bar>div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.provider-add-bar strong {
+  font-size: 12px;
+}
+
+.provider-add-bar span {
+  color: var(--foreground-subtle);
+
+  font-size: 10px;
+}
+
+.provider-add-bar>select {
+  width: 100%;
+  height: 42px;
+
+  padding: 0 11px;
+
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  outline: none;
+
+  background: #0c0c0f;
+
+  color: white;
+}
+
+.settings-note-stacked {
+  flex-direction: column;
+}
+
+.settings-note a {
+  color: var(--foreground-muted);
+}
+
+.schedule-editor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.schedule-editor .settings-field {
+  margin-top: 0;
+}
+
+.task-state-grid {
+  margin: 22px 0 0;
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  border: 1px solid var(--border);
+  border-radius: 11px;
+}
+
+.task-state-grid>div {
+  min-width: 0;
+  padding: 14px;
+}
+
+.task-state-grid>div:nth-child(n + 4) {
+  border-top: 1px solid var(--border);
+}
+
+.task-state-grid dt {
+  color: var(--foreground-subtle);
+
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.task-state-grid dd {
+  margin: 5px 0 0;
+
+  overflow-wrap: anywhere;
+
+  color: var(--foreground-muted);
+
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.task-unavailable {
+  padding: 14px 16px;
+
+  border: 1px dashed var(--border);
+  border-radius: 11px;
+
+  color: var(--foreground-subtle);
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 @media (max-width: 760px) {
   .settings-sidebar {
     padding-bottom: 14px;
@@ -97,5 +330,40 @@
 
   .settings-save-group .primary-button {
     width: 100%;
+  }
+
+  .provider-card-header,
+  .scheduled-task-header {
+    flex-direction: column;
+  }
+
+  .provider-add-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-add-bar .primary-button,
+  .provider-card-actions .primary-button,
+  .provider-card-actions .secondary-button {
+    width: 100%;
+  }
+
+  .provider-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .provider-card-actions .save-feedback,
+  .provider-card-actions .form-error {
+    margin-right: 0;
+    text-align: center;
+  }
+
+  .schedule-editor,
+  .task-state-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-state-grid>div+div {
+    border-top: 1px solid var(--border);
   }
 }

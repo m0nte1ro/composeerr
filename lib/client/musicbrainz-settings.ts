@@ -13,44 +13,44 @@ function ensureOkResponse(
   }
 }
 
-export async function getMusicBrainzSettings() {
-  const response = await fetch("/api/settings/content/musicbrainz", {
-    cache: "no-store",
-  });
+async function readSettingsResponse(response: Response, fallback: string) {
   const data = (await response.json()) as {
     ok?: boolean;
     settings?: PublicMusicBrainzSettings;
     error?: string;
   };
-
-  ensureOkResponse(response, data, "Could not load MusicBrainz settings.");
+  ensureOkResponse(response, data, fallback);
 
   if (!data.settings) {
-    throw new Error("Could not load MusicBrainz settings.");
+    throw new Error(fallback);
   }
 
   return data.settings;
 }
 
+export async function getMusicBrainzSettings() {
+  return readSettingsResponse(
+    await fetch("/api/settings/content/musicbrainz", { cache: "no-store" }),
+    "Could not load MusicBrainz settings.",
+  );
+}
+
 export async function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload) {
-  const response = await fetch("/api/settings/content/musicbrainz", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = (await response.json()) as {
-    ok?: boolean;
-    settings?: PublicMusicBrainzSettings;
-    error?: string;
-  };
+  return readSettingsResponse(
+    await fetch("/api/settings/content/musicbrainz", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+    "Could not save MusicBrainz settings.",
+  );
+}
 
-  ensureOkResponse(response, data, "Could not save MusicBrainz settings.");
-
-  if (!data.settings) {
-    throw new Error("Could not save MusicBrainz settings.");
-  }
-
-  return data.settings;
+export async function resetMusicBrainzSettings() {
+  return readSettingsResponse(
+    await fetch("/api/settings/content/musicbrainz", { method: "DELETE" }),
+    "Could not reset MusicBrainz settings.",
+  );
 }
 
 export async function testMusicBrainzConnection(payload: MusicBrainzSettingsPayload) {
@@ -59,10 +59,6 @@ export async function testMusicBrainzConnection(payload: MusicBrainzSettingsPayl
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = (await response.json()) as {
-    ok?: boolean;
-    error?: string;
-  };
-
+  const data = (await response.json()) as { ok?: boolean; error?: string };
   ensureOkResponse(response, data, "MusicBrainz connection test failed.");
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   getMusicBrainzSettings,
+  resetMusicBrainzSettings,
   saveMusicBrainzSettings,
   testMusicBrainzConnection,
 } from "@/lib/client/musicbrainz-settings";
@@ -24,6 +25,7 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 export function useMusicBrainzSettings() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [customized, setCustomized] = useState(false);
   const [url, setUrl] = useState("");
   const [authMode, setAuthMode] = useState<MusicBrainzAuthMode>("none");
   const [username, setUsername] = useState("");
@@ -41,6 +43,7 @@ export function useMusicBrainzSettings() {
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const applyPublicSettings = useCallback((settings: PublicMusicBrainzSettings) => {
+    setCustomized(settings.customized);
     setUrl(settings.url);
     setAuthMode(settings.authMode);
     setUsername(settings.username);
@@ -136,6 +139,26 @@ export function useMusicBrainzSettings() {
     }
   }, [applyPublicSettings, getPayload]);
 
+  const resetSettings = useCallback(async () => {
+    setSaveState("saving");
+
+    try {
+      applyPublicSettings(await resetMusicBrainzSettings());
+      setConnectionState({ status: "idle" });
+      setSaveState("saved");
+      window.setTimeout(() => setSaveState("idle"), 1800);
+    } catch (error) {
+      setSaveState("error");
+      setConnectionState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not reset MusicBrainz settings.",
+      });
+    }
+  }, [applyPublicSettings]);
+
   const hasRequiredSecret =
     authMode === "basic"
       ? Boolean(password) || hasSavedPassword
@@ -155,6 +178,7 @@ export function useMusicBrainzSettings() {
   return {
     loading,
     loadError,
+    customized,
     url,
     setUrl,
     authMode,
@@ -184,5 +208,6 @@ export function useMusicBrainzSettings() {
     markAsEdited,
     testConnection,
     saveSettings,
+    resetSettings,
   };
 }

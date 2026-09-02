@@ -212,6 +212,20 @@ export function ContentSettingsPageClient() {
                 </Button>
 
                 <div className="settings-save-group">
+                  {settings.customized && (
+                    <Button
+                      variant="text"
+                      type="button"
+                      disabled={settings.saveState === "saving"}
+                      onClick={() => {
+                        if (window.confirm("Reset MusicBrainz to the public Composeerr default and remove saved credentials?")) {
+                          void settings.resetSettings();
+                        }
+                      }}
+                    >
+                      Reset to default
+                    </Button>
+                  )}
                   {settings.saveState === "saved" && (
                     <span className="save-feedback">✓ Saved</span>
                   )}
