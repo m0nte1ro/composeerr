@@ -11,9 +11,12 @@ function isSqliteBusy(error: unknown) {
   );
 }
 
+type ComposeerrDatabase = ReturnType<typeof createDatabase>;
+
 function createDatabase() {
   const dataDirectory =
-    process.env.COMPOSEERR_DATA_DIR ?? path.join(process.cwd(), "data");
+    process.env.COMPOSEERR_DATA_DIR ??
+    path.join(process.cwd(), "data");
 
   fs.mkdirSync(dataDirectory, {
     recursive: true,
@@ -24,6 +27,8 @@ function createDatabase() {
   const database = new Database(databasePath, {
     timeout: 5000,
   });
+
+  database.pragma("busy_timeout = 5000");
 
   try {
     database.pragma("journal_mode = WAL");
@@ -51,11 +56,56 @@ function createDatabase() {
 }
 
 const globalForDatabase = globalThis as unknown as {
-  composeerrDatabase?: ReturnType<typeof createDatabase>;
+  composeerrDatabase?: ComposeerrDatabase;
 };
 
-export const db = globalForDatabase.composeerrDatabase ?? createDatabase();
+/*
+ * Lazily create the SQLite connection.
+ *
+ * This is important for Next.js production builds:
+ * route modules can be imported concurrently while Next
+ * collects page data. Merely importing this module must
+ * therefore NOT open or initialise SQLite.
+ */
+export function getDatabase(): ComposeerrDatabase {
+  if (!globalForDatabase.composeerrDatabase) {
+    globalForDatabase.composeerrDatabase = createDatabase();
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDatabase.composeerrDatabase = db;
+  return globalForDatabase.composeerrDatabase;
 }
+
+/*
+ * Backwards-compatible lazy proxy.
+ *
+ * Existing code can continue doing:
+ *
+ *   import { db } from "@/lib/server/db";
+ *   db.prepare(...);
+ *
+ * Accessing a property/method is what causes the real
+ * database connection to be created.
+ */
+export const db = new Proxy({} as ComposeerrDatabase, {
+  get(_target, property) {
+    const database = getDatabase();
+
+    const value = Reflect.get(database, property, database);
+
+    /*
+     * better-sqlite3 methods rely on their instance as
+     * `this`, so bind methods back to the actual DB.
+     */
+    if (typeof value === "function") {
+      return value.bind(database);
+    }
+
+    return value;
+  },
+
+  set(_target, property, value) {
+    const database = getDatabase();
+
+    return Reflect.set(database, property, value, database);
+  },
+});
