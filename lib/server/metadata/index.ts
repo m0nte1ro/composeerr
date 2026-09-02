@@ -1,17 +1,8 @@
 import type { MusicMetadataProvider } from "@/lib/server/metadata/provider";
 
 import { MusicBrainzPublicProvider } from "@/lib/server/metadata/musicbrainz-public";
+import { getMusicBrainzConnection } from "@/lib/server/musicbrainz-settings";
 
-let provider:
-  | MusicMetadataProvider
-  | null = null;
-
-export function getMetadataProvider():
-  MusicMetadataProvider {
-  if (!provider) {
-    provider =
-      new MusicBrainzPublicProvider();
-  }
-
-  return provider;
+export function getMetadataProvider(): MusicMetadataProvider {
+  return new MusicBrainzPublicProvider(getMusicBrainzConnection());
 }

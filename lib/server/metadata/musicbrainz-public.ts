@@ -9,12 +9,11 @@ import type {
 } from "@/lib/metadata/types";
 
 import type { MusicMetadataProvider } from "@/lib/server/metadata/provider";
-
-const MUSICBRAINZ_API =
-  "https://musicbrainz.org/ws/2";
-
-const USER_AGENT =
-  "Composeerr/0.1.0 (https://github.com/m0nte1ro/composeerr)";
+import {
+  getMusicBrainzCacheNamespace,
+  getMusicBrainzHeaders,
+  type MusicBrainzConnection,
+} from "@/lib/server/musicbrainz-settings";
 
 const CACHE_TTL_MS =
   15 * 60 * 1000;
@@ -423,6 +422,7 @@ function getRetryDelayMs(
 }
 
 async function requestMusicBrainz<T>(
+  connection: MusicBrainzConnection,
   resource: string,
   params: Record<
     string,
@@ -449,7 +449,7 @@ async function requestMusicBrainz<T>(
   }
 
   const cacheKey =
-    `${resource}?${searchParams.toString()}`
+    `${getMusicBrainzCacheNamespace(connection)}|${resource}?${searchParams.toString()}`
       .toLowerCase();
 
   const cached =
@@ -474,15 +474,12 @@ async function requestMusicBrainz<T>(
         try {
           response =
             await fetch(
-              `${MUSICBRAINZ_API}/${resource}?${searchParams}`,
+              `${connection.url}/${resource}?${searchParams}`,
               {
-                headers: {
-                  Accept:
-                    "application/json",
-
-                  "User-Agent":
-                    USER_AGENT,
-                },
+                headers:
+                  getMusicBrainzHeaders(
+                    connection,
+                  ),
 
                 cache:
                   "no-store",
@@ -895,6 +892,9 @@ function mapRecording(
 export class MusicBrainzPublicProvider
   implements MusicMetadataProvider
 {
+  constructor(
+    private readonly connection: MusicBrainzConnection,
+  ) {}
   readonly id =
     "musicbrainz-public";
 
@@ -907,6 +907,7 @@ export class MusicBrainzPublicProvider
 ) {
   const response =
     await requestMusicBrainz<ArtistSearchResponse>(
+      this.connection,
       "artist/",
       {
         query:
@@ -970,6 +971,7 @@ export class MusicBrainzPublicProvider
 
 const response =
   await requestMusicBrainz<ReleaseGroupSearchResponse>(
+    this.connection,
     "release-group/",
     {
       query:
@@ -1011,6 +1013,7 @@ const response =
 
   const response =
     await requestMusicBrainz<RecordingSearchResponse>(
+      this.connection,
       "recording/",
       {
         query:
@@ -1081,6 +1084,7 @@ const response =
       releaseResponse,
     ] = await Promise.all([
       requestMusicBrainz<MusicBrainzRecording>(
+        this.connection,
         `recording/${id}`,
         {
           inc:
@@ -1089,6 +1093,7 @@ const response =
       ),
 
       requestMusicBrainz<ReleaseBrowseResponse>(
+        this.connection,
         "release/",
         {
           recording: id,
@@ -1199,6 +1204,7 @@ const response =
   ): Promise<MetadataAlbumDetails> {
     const releaseGroup =
       await requestMusicBrainz<MusicBrainzReleaseGroup>(
+        this.connection,
         `release-group/${id}`,
         {
           inc:
@@ -1256,6 +1262,7 @@ const response =
 
     const release =
       await requestMusicBrainz<MusicBrainzRelease>(
+        this.connection,
         `release/${representative.id}`,
         {
           inc:
@@ -1320,10 +1327,12 @@ const response =
       releaseGroups,
     ] = await Promise.all([
       requestMusicBrainz<MusicBrainzArtist>(
+        this.connection,
         `artist/${id}`,
       ),
 
       requestMusicBrainz<ReleaseGroupBrowseResponse>(
+        this.connection,
         "release-group/",
         {
           artist: id,

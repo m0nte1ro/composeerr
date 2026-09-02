@@ -1,0 +1,101 @@
+.settings-nav-item {
+  text-decoration: none;
+}
+
+.settings-auth-fields {
+  margin-top: 22px;
+  padding: 18px;
+
+  border: 1px solid var(--border);
+  border-radius: 11px;
+
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.settings-auth-fields .settings-field:first-child {
+  margin-top: 0;
+}
+
+.settings-note span {
+  line-height: 1.55;
+}
+
+.settings-actions-split {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-save-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-save-group .save-feedback {
+  margin-right: 0;
+}
+
+.settings-placeholder,
+.settings-state {
+  padding: 28px 24px;
+
+  color: var(--foreground-muted);
+
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.settings-state {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-state span {
+  color: var(--foreground-subtle);
+}
+
+@media (max-width: 760px) {
+  .settings-sidebar {
+    padding-bottom: 14px;
+  }
+
+  .settings-brand {
+    padding-bottom: 18px;
+  }
+
+  .settings-navigation {
+    margin: 0 -16px;
+    padding: 0 16px 2px;
+
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-navigation::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav-item {
+    min-height: 38px;
+    flex: 0 0 auto;
+  }
+
+  .settings-actions-split,
+  .settings-save-group {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .settings-save-group .save-feedback {
+    align-self: center;
+  }
+
+  .settings-save-group .primary-button {
+    width: 100%;
+  }
+}
