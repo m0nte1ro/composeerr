@@ -50,11 +50,17 @@ export async function getLidarrOptions() {
     cache: "no-store",
   });
 
-  const data = (await response.json()) as {
+  let data: {
     ok?: boolean;
     options?: LidarrOptions;
     error?: string;
   };
+
+  try {
+    data = (await response.json()) as typeof data;
+  } catch {
+    throw new Error("Could not load Lidarr options.");
+  }
 
   ensureOkResponse(response, data, "Could not load Lidarr options.");
 

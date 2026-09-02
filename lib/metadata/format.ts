@@ -1,7 +1,7 @@
 import type { MetadataAlbumResult } from "@/lib/metadata/types";
 
 export function formatDuration(milliseconds: number | null) {
-  if (!milliseconds) {
+  if (milliseconds === null) {
     return "-";
   }
 

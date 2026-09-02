@@ -13,11 +13,17 @@ export async function requestAlbumByReleaseGroupId(
     }),
   });
 
-  const data = (await response.json()) as {
+  let data: {
     ok?: boolean;
     error?: string;
     request?: LidarrAlbumRequestResult;
   };
+
+  try {
+    data = (await response.json()) as typeof data;
+  } catch {
+    throw new Error("Request failed.");
+  }
 
   if (!response.ok || !data.ok || !data.request) {
     throw new Error(data.error ?? "Request failed.");
