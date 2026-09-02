@@ -1,0 +1,7 @@
+{
+  "name": "Composeerr Development",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "composeerr",
+  "workspaceFolder": "/app",
+  "shutdownAction": "stopCompose"
+}
