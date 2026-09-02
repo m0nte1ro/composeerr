@@ -1,5 +1,7 @@
 node_modules
 .next
+.next-profiles
+next-env.d.ts
 
 .git
 .github
@@ -13,6 +15,11 @@ data
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+
+*.db
+*.db-shm
+*.db-wal
 
 coverage
 

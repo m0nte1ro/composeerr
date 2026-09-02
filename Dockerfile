@@ -1,25 +1,49 @@
-FROM node:24-bookworm-slim AS dependencies
+FROM node:24-bookworm-slim AS toolchain
 
 WORKDIR /app
 
-# better-sqlite3 may need native compilation during npm install.
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Keep the complete native build toolchain in development/build stages only.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
         python3 \
         make \
         g++ \
     && rm -rf /var/lib/apt/lists/*
 
+
+FROM toolchain AS dependencies
+
 COPY package.json package-lock.json ./
 
-RUN npm ci
+RUN npm ci \
+    && sha256sum package-lock.json | cut -d " " -f 1 \
+        > node_modules/.composeerr-package-lock.sha256
 
 
-FROM node:24-bookworm-slim AS builder
+FROM toolchain AS development
 
-WORKDIR /app
+COPY --chown=node:node --from=dependencies /app/node_modules ./node_modules
+COPY --chmod=755 docker/development-entrypoint.sh /usr/local/bin/composeerr-development-entrypoint
+COPY --chown=node:node . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
+RUN mkdir -p /app/data /app/.next \
+    && chown node:node /app/data /app/.next
+
+USER node
+
+EXPOSE 3000
+
+ENTRYPOINT ["composeerr-development-entrypoint"]
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"]
+
+
+FROM toolchain AS builder
+
+ENV NODE_ENV=production
 
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
@@ -32,7 +56,7 @@ FROM builder AS production-dependencies
 RUN npm prune --omit=dev
 
 
-FROM node:24-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS production
 
 WORKDIR /app
 
@@ -48,8 +72,7 @@ RUN apt-get update \
 
 COPY --from=production-dependencies /app ./
 
-# The official Node image already contains a non-root "node" user
-# with UID/GID 1000, which also works nicely with a normal WSL user.
+# The official Node image provides the non-root node user (UID/GID 1000).
 RUN mkdir -p /app/data \
     && chown -R node:node /app
 
