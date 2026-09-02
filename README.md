@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Composeerr
 
-## Getting Started
+Composeerr is a self-hosted music request application. Docker provides the complete development toolchain, including Node.js, npm, native build dependencies, TypeScript, and ESLint.
 
-First, run the development server:
+## Development
+
+The only host requirements are WSL, Git, Docker with Docker Compose, and optionally VS Code.
+
+From a fresh clone:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository>
+cd composeerr
+docker compose up
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The repository is bind-mounted into the container, so edits made in WSL are picked up by Next.js Fast Refresh. Dependencies and development SQLite data remain in Docker-managed volumes; no host `node_modules` or `data` directory is needed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Common commands:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Start in the background
+docker compose up -d
 
-## Learn More
+# Rebuild after Dockerfile or dependency changes
+docker compose up --build
 
-To learn more about Next.js, take a look at the following resources:
+# Open a shell with the complete development toolchain
+docker compose exec composeerr bash
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Run checks inside Docker
+docker compose exec composeerr npm run lint
+docker compose exec composeerr npm run build
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Stop development
+docker compose down
+```
 
-## Deploy on Vercel
+The development volumes are:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `composeerr-development-node-modules` for `/app/node_modules`
+- `composeerr-development-data` for `/app/data`
+- `composeerr-development-next-cache` for `/app/.next`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The development entrypoint automatically synchronizes `node_modules` with `package-lock.json`. To reset only the development database:
+
+```bash
+docker compose down
+docker volume rm composeerr-development-data
+docker compose up
+```
+
+This leaves the dependency volume intact.
+
+## Production
+
+Production uses the optimized `production` Docker target and `next start`. It remains separate from the default development environment:
+
+```bash
+docker compose -f compose.prod.yaml up -d --build
+```
+
+Production continues to persist SQLite data in `./data`, independently of the Docker-managed development database. Stop it with:
+
+```bash
+docker compose -f compose.prod.yaml down
+```

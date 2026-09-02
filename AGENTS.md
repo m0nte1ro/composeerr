@@ -1,9 +1,17 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+# Composeerr Agent Instructions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+Before making changes:
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+1. Read `PROJECT_CONTEXT.md`.
+2. Inspect the current repository and treat the code as the implementation source of truth.
+3. Check the current Git branch and working tree.
+4. Preserve the existing componentized architecture.
+5. Do not commit, push, merge, or rebase unless explicitly asked.
+
+`PROJECT_CONTEXT.md` contains the current product vision, architecture decisions,
+Docker development workflow, provider roadmap, Settings design, search behavior,
+Lidarr constraints, and known tech debt.
 
 <!-- END:nextjs-agent-rules -->

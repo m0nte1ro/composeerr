@@ -1,0 +1,51 @@
+services:
+  composeerr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+
+    image: composeerr:development
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - type: bind
+        source: .
+        target: /app
+      - type: volume
+        source: node_modules
+        target: /app/node_modules
+      - type: volume
+        source: development_data
+        target: /app/data
+      - type: volume
+        source: next_cache
+        target: /app/.next
+
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    init: true
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  node_modules:
+    name: composeerr-development-node-modules
+  development_data:
+    name: composeerr-development-data
+  next_cache:
+    name: composeerr-development-next-cache
