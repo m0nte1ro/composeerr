@@ -7,6 +7,7 @@ type SecretFieldProps = {
   showValue: boolean;
   value: string;
   placeholder: string;
+  ariaLabel?: string;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onToggleVisibility: () => void;
@@ -20,6 +21,7 @@ export function SecretField({
   showValue,
   value,
   placeholder,
+  ariaLabel = "Saved secret",
   onStartEditing,
   onCancelEditing,
   onToggleVisibility,
@@ -33,7 +35,7 @@ export function SecretField({
           type="text"
           value="••••••••••••••••"
           readOnly
-          aria-label="Saved Lidarr API key"
+          aria-label={ariaLabel}
         />
 
         <button type="button" onClick={onStartEditing}>

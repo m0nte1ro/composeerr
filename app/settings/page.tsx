@@ -1,5 +1,5 @@
-import { LidarrSettingsPageClient } from "@/components/settings/LidarrSettingsPageClient";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return <LidarrSettingsPageClient />;
+  redirect("/settings/general");
 }
