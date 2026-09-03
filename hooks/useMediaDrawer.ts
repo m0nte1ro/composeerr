@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { loadMetadataDetails } from "@/lib/client/metadata";
 import type {
@@ -36,6 +36,7 @@ export function useMediaDrawer({
     useState<MetadataArtistDetails | null>(null);
 
   const [artistSection, setArtistSection] = useState<ArtistSection>("albums");
+  const [drawerSessionId, setDrawerSessionId] = useState(0);
 
   const resetSelections = useCallback(() => {
     setSelectedSong(null);
@@ -51,6 +52,7 @@ export function useMediaDrawer({
     setDrawerError(null);
 
     resetSelections();
+    setDrawerSessionId((current) => current + 1);
   }, [onNavigationChange, resetSelections]);
 
   const openSong = useCallback(
@@ -62,6 +64,7 @@ export function useMediaDrawer({
       setDrawerError(null);
 
       resetSelections();
+      setDrawerSessionId((current) => current + 1);
 
       try {
         const details = await loadMetadataDetails("song", song.id);
@@ -86,6 +89,7 @@ export function useMediaDrawer({
       setDrawerError(null);
 
       resetSelections();
+      setDrawerSessionId((current) => current + 1);
       setArtistSection("albums");
 
       try {
@@ -109,6 +113,7 @@ export function useMediaDrawer({
       if (!preserveParent) {
         setSelectedSong(null);
         setSelectedArtist(null);
+        setDrawerSessionId((current) => current + 1);
       }
 
       setSelectedAlbum(null);
@@ -157,45 +162,16 @@ export function useMediaDrawer({
     selectedSong,
   ]);
 
-  const filteredArtistAlbums = useMemo(() => {
-    const discography = selectedArtist?.discography ?? [];
-
-    return discography.filter((album) => {
-      const secondary = album.secondaryTypes.map((value) =>
-        value.toLowerCase(),
-      );
-      const primary = album.primaryType?.toLowerCase() ?? "";
-
-      if (artistSection === "compilations") {
-        return secondary.includes("compilation");
-      }
-
-      if (artistSection === "live") {
-        return secondary.includes("live");
-      }
-
-      if (artistSection === "singles") {
-        return primary === "single" || primary === "ep";
-      }
-
-      return (
-        primary === "album" &&
-        !secondary.includes("compilation") &&
-        !secondary.includes("live")
-      );
-    });
-  }, [artistSection, selectedArtist]);
-
   return {
     drawerMode,
     drawerLoading,
     drawerError,
     drawerOpen: drawerMode !== null,
+    drawerSessionId,
     selectedSong,
     selectedAlbum,
     selectedArtist,
     artistSection,
-    filteredArtistAlbums,
     setArtistSection,
     closeDrawer,
     openSong,

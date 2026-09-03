@@ -1,4 +1,9 @@
 import type {
+  MetadataAlbumResult,
+  MetadataArtistResult,
+  MetadataEnrichment,
+} from "@/lib/metadata/types";
+import type {
   CredentialProviderAuthMode,
   MetadataProviderKey,
 } from "@/lib/providers/types";
@@ -52,6 +57,236 @@ function getHeaders(connection: MetadataProviderConnection) {
   }
 
   return headers;
+}
+
+function getNativeUrl(
+  connection: MetadataProviderConnection,
+  path: string,
+) {
+  return appendPath(
+    connection.url,
+    connection.authMode === "native"
+      ? `${encodeURIComponent(connection.nativeSecret)}/${path}`
+      : path,
+  );
+}
+
+function strings(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function text(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function plainText(value: unknown) {
+  const content = text(value);
+  return content
+    ? content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || null
+    : null;
+}
+
+function normalizeMatch(value: unknown) {
+  return typeof value === "string"
+    ? value
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim()
+    : "";
+}
+
+function count(value: unknown) {
+  const number = typeof value === "string" ? Number(value) : value;
+  return typeof number === "number" && Number.isFinite(number) ? number : null;
+}
+
+async function requestJson(
+  connection: MetadataProviderConnection,
+  url: URL | string,
+) {
+  const headers = getHeaders(connection);
+
+  if (connection.key === "discogs" && connection.authMode === "native") {
+    headers.Authorization = `Discogs token=${connection.nativeSecret}`;
+  }
+
+  const response = await providerFetch(url, { headers }, getMetadataProviderName(connection.key));
+
+  if (response.status === 404) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+
+  return readProviderJson(response, getMetadataProviderName(connection.key));
+}
+
+async function enrichLastFm(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+): Promise<MetadataEnrichment | null> {
+  const url = new URL(connection.url);
+  url.searchParams.set("method", entity.kind === "artist" ? "artist.getInfo" : "album.getInfo");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("autocorrect", "1");
+  url.searchParams.set("mbid", entity.id);
+
+  if (entity.kind === "artist") {
+    url.searchParams.set("artist", entity.name);
+  } else {
+    url.searchParams.set("artist", entity.artist);
+    url.searchParams.set("album", entity.title);
+  }
+
+  if (connection.authMode === "native") {
+    url.searchParams.set("api_key", connection.nativeSecret);
+  }
+
+  const data = await requestJson(connection, url);
+  const root = isObject(data)
+    ? entity.kind === "artist" && isObject(data.artist)
+      ? data.artist
+      : entity.kind === "album" && isObject(data.album)
+        ? data.album
+        : null
+    : null;
+
+  if (!root) return null;
+  const bio = isObject(root.bio) ? plainText(root.bio.content) : null;
+  const wiki = isObject(root.wiki) ? plainText(root.wiki.content) : null;
+  const tagRoot = isObject(root.tags) && Array.isArray(root.tags.tag) ? root.tags.tag : [];
+  const tags = tagRoot.flatMap((tag) =>
+    isObject(tag) && typeof tag.name === "string" ? [tag.name] : [],
+  );
+  const stats = isObject(root.stats) ? root.stats : null;
+
+  return {
+    description: bio ?? wiki,
+    tags,
+    listeners: stats ? count(stats.listeners) : null,
+    playCount: stats ? count(stats.playcount) : count(root.playcount),
+    providerNames: ["Last.fm"],
+  };
+}
+
+async function enrichDiscogs(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+): Promise<MetadataEnrichment | null> {
+  const url = new URL(appendPath(connection.url, "database/search"));
+  url.searchParams.set("type", entity.kind === "artist" ? "artist" : "release");
+  url.searchParams.set("per_page", "1");
+  url.searchParams.set("q", entity.kind === "artist" ? entity.name : `${entity.artist} ${entity.title}`);
+  const data = await requestJson(connection, url);
+  const results = isObject(data) && Array.isArray(data.results) ? data.results : [];
+  const first = results.find(isObject);
+  if (!first) return null;
+
+  return {
+    description: null,
+    tags: [...strings(first.genre), ...strings(first.style)],
+    listeners: null,
+    playCount: null,
+    providerNames: ["Discogs"],
+  };
+}
+
+async function searchAudioDb(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+) {
+  const path = entity.kind === "artist" ? "search.php" : "searchalbum.php";
+  const url = new URL(getNativeUrl(connection, path));
+  if (entity.kind === "artist") {
+    url.searchParams.set("s", entity.name);
+  } else {
+    url.searchParams.set("s", entity.artist);
+    url.searchParams.set("a", entity.title);
+  }
+  return requestJson(connection, url);
+}
+
+function findAudioDbRecord(
+  records: unknown[],
+  entity: MetadataArtistResult | MetadataAlbumResult,
+) {
+  return records.find((value): value is Record<string, unknown> => {
+    if (!isObject(value)) {
+      return false;
+    }
+
+    if (
+      normalizeMatch(value.strMusicBrainzID) === normalizeMatch(entity.id)
+    ) {
+      return true;
+    }
+
+    if (entity.kind === "artist") {
+      return normalizeMatch(value.strArtist) === normalizeMatch(entity.name);
+    }
+
+    return (
+      normalizeMatch(value.strArtist) === normalizeMatch(entity.artist) &&
+      normalizeMatch(value.strAlbum) === normalizeMatch(entity.title)
+    );
+  });
+}
+
+async function enrichAudioDb(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+): Promise<MetadataEnrichment | null> {
+  const data = await searchAudioDb(connection, entity);
+  const records = isObject(data)
+    ? entity.kind === "artist" && Array.isArray(data.artists)
+      ? data.artists
+      : entity.kind === "album" && Array.isArray(data.album)
+        ? data.album
+        : []
+    : [];
+  const record = findAudioDbRecord(records, entity);
+  if (!record) return null;
+
+  return {
+    description:
+      plainText(record.strBiographyEN) ?? plainText(record.strDescriptionEN),
+    tags: [text(record.strGenre), text(record.strStyle)].filter(
+      (value): value is string => Boolean(value),
+    ),
+    listeners: null,
+    playCount: null,
+    providerNames: ["TheAudioDB"],
+  };
+}
+
+export async function enrichMetadataProvider(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+) {
+  if (connection.key === "lastfm") return enrichLastFm(connection, entity);
+  if (connection.key === "discogs") return enrichDiscogs(connection, entity);
+  return enrichAudioDb(connection, entity);
+}
+
+export async function resolveAudioDbArtwork(
+  connection: MetadataProviderConnection,
+  entity: MetadataArtistResult | MetadataAlbumResult,
+) {
+  if (connection.key !== "theaudiodb") return null;
+  const data = await searchAudioDb(connection, entity);
+  const records = isObject(data)
+    ? entity.kind === "artist" && Array.isArray(data.artists)
+      ? data.artists
+      : entity.kind === "album" && Array.isArray(data.album)
+        ? data.album
+        : []
+    : [];
+  const record = findAudioDbRecord(records, entity);
+  if (!record) return null;
+  return text(entity.kind === "artist" ? record.strArtistThumb : record.strAlbumThumb);
 }
 
 const adapters: Record<MetadataProviderKey, MetadataProviderAdapter> = {

@@ -84,3 +84,16 @@ export type MetadataArtistDetails = {
   artist: MetadataArtistResult;
   discography: MetadataAlbumResult[];
 };
+
+export type MetadataEnrichment = {
+  description: string | null;
+  tags: string[];
+  listeners: number | null;
+  playCount: number | null;
+  providerNames: string[];
+};
+
+export type ArtworkResolution = {
+  url: string | null;
+  provider: string | null;
+};

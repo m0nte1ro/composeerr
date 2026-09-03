@@ -62,7 +62,7 @@ export function SongDrawer({
                 key={album.id}
                 onClick={() => onOpenAlbum(album)}
               >
-                <AlbumArtwork title={album.title} className="appears-on-artwork metadata-result-artwork" />
+                <AlbumArtwork album={album} className="appears-on-artwork metadata-result-artwork" />
 
                 <div className="appears-on-copy">
                   <strong>{album.title}</strong>

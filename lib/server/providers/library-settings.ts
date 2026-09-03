@@ -1,5 +1,3 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import {
   LIBRARY_PROVIDER_KEYS,
   type LibraryProviderKey,
@@ -11,10 +9,9 @@ import { getLidarrOptions, getLidarrStatus } from "@/lib/server/lidarr";
 import { db } from "@/lib/server/db";
 import { getLidarrSettings } from "@/lib/server/lidarr-settings";
 import {
-  ProviderConnectionError,
-  providerFetch,
-  readProviderJson,
-} from "@/lib/server/providers/http";
+  testNavidromeConnection,
+  type NavidromeConnection,
+} from "@/lib/server/providers/library-adapters";
 
 const ORDER_KEY = "providers.library.order";
 const PROVIDER_KEY_PREFIX = "provider.library.";
@@ -25,7 +22,7 @@ type StoredLidarrProvider = {
   enabled: boolean;
 };
 
-type StoredNavidromeProvider = {
+type StoredNavidromeProvider = NavidromeConnection & {
   key: "navidrome";
   enabled: boolean;
   url: string;
@@ -37,12 +34,6 @@ type StoredLibraryProvider = StoredLidarrProvider | StoredNavidromeProvider;
 
 type SettingRow = {
   value: string;
-};
-
-type SubsonicPingResponse = {
-  "subsonic-response"?: {
-    status?: unknown;
-  };
 };
 
 export class LibraryProviderSettingsError extends Error {}
@@ -145,6 +136,33 @@ function parseProvider(
 function getStoredProvider(key: LibraryProviderKey) {
   const row = readSetting(getSettingsKey(key));
   return row ? parseProvider(key, row.value) : null;
+}
+
+export type EnabledLibraryProvider =
+  | { key: "lidarr"; url: string; apiKey: string }
+  | ({ key: "navidrome" } & NavidromeConnection);
+
+export function getEnabledLibraryProviders(): EnabledLibraryProvider[] {
+  return getProviderOrder().reduce<EnabledLibraryProvider[]>((providers, key) => {
+    const provider = getStoredProvider(key);
+    if (!provider?.enabled) return providers;
+
+    if (provider.key === "lidarr") {
+      const settings = getLidarrSettings();
+      if (settings?.url.trim() && settings.apiKey.trim()) {
+        providers.push({ key: "lidarr", url: settings.url, apiKey: settings.apiKey });
+      }
+      return providers;
+    }
+
+    providers.push({
+      key: "navidrome",
+      url: provider.url,
+      username: provider.username,
+      password: provider.password,
+    });
+    return providers;
+  }, []);
 }
 
 function getProviderOrder(): LibraryProviderKey[] {
@@ -336,35 +354,7 @@ async function testLidarrProvider() {
 }
 
 async function testNavidromeProvider(provider: StoredNavidromeProvider) {
-  const salt = randomBytes(8).toString("hex");
-  const token = createHash("md5")
-    .update(`${provider.password}${salt}`)
-    .digest("hex");
-  const pingUrl = new URL(provider.url);
-  pingUrl.pathname = `${pingUrl.pathname.replace(/\/+$/, "")}/rest/ping.view`;
-  pingUrl.search = "";
-  pingUrl.searchParams.set("u", provider.username);
-  pingUrl.searchParams.set("t", token);
-  pingUrl.searchParams.set("s", salt);
-  pingUrl.searchParams.set("v", "1.16.1");
-  pingUrl.searchParams.set("c", "Composeerr");
-  pingUrl.searchParams.set("f", "json");
-
-  const response = await providerFetch(
-    pingUrl,
-    { headers: { Accept: "application/json" } },
-    "Navidrome",
-  );
-  const body = (await readProviderJson(
-    response,
-    "Navidrome",
-  )) as SubsonicPingResponse;
-
-  if (body["subsonic-response"]?.status !== "ok") {
-    throw new ProviderConnectionError(
-      "Navidrome rejected the credentials or returned an error.",
-    );
-  }
+  await testNavidromeConnection(provider);
 }
 
 export async function testLibraryProviderPayload(

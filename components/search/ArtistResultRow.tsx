@@ -13,7 +13,7 @@ export function ArtistResultRow({
 }: ArtistResultRowProps) {
   return (
     <button className="song-result" type="button" onClick={() => onOpen(artist)}>
-      <ArtistArtwork name={artist.name} className="artist-result-artwork metadata-artist-artwork" />
+      <ArtistArtwork artist={artist} className="artist-result-artwork metadata-artist-artwork" />
 
       <div className="song-result-copy">
         <strong>{artist.name}</strong>

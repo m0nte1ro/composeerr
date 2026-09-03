@@ -1,7 +1,10 @@
+import { useState } from "react";
+
 import { AlbumArtwork } from "@/components/music/AlbumArtwork";
 import { AvailabilityBadge } from "@/components/music/AvailabilityBadge";
 import { ArtistArtwork } from "@/components/music/ArtistArtwork";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { MetadataEnrichment } from "@/components/drawers/MetadataEnrichment";
 import { albumTypeLabel, artistSummary } from "@/lib/metadata/format";
 import type { ArtistSection } from "@/hooks/useMediaDrawer";
 import type {
@@ -12,7 +15,7 @@ import type {
 type ArtistDrawerProps = {
   details: MetadataArtistDetails;
   artistSection: ArtistSection;
-  filteredAlbums: MetadataAlbumResult[];
+  active: boolean;
   setArtistSection: (section: ArtistSection) => void;
   isAlbumManaged: (album: MetadataAlbumResult) => boolean;
   onOpenAlbum: (album: MetadataAlbumResult) => void;
@@ -22,36 +25,65 @@ const TABS: Array<{
   id: ArtistSection;
   label: string;
 }> = [
-  {
-    id: "albums",
-    label: "Albums",
-  },
-  {
-    id: "compilations",
-    label: "Compilations",
-  },
-  {
-    id: "live",
-    label: "Live",
-  },
-  {
-    id: "singles",
-    label: "Singles & EPs",
-  },
-];
+    {
+      id: "albums",
+      label: "Albums",
+    },
+    {
+      id: "compilations",
+      label: "Compilations",
+    },
+    {
+      id: "live",
+      label: "Live",
+    },
+    {
+      id: "singles",
+      label: "Singles & EPs",
+    },
+  ];
+
+function albumsForSection(
+  albums: MetadataAlbumResult[],
+  section: ArtistSection,
+) {
+  return albums.filter((album) => {
+    const secondary = album.secondaryTypes.map((value) => value.toLowerCase());
+    const primary = album.primaryType?.toLowerCase() ?? "";
+
+    if (section === "compilations") return secondary.includes("compilation");
+    if (section === "live") return secondary.includes("live");
+    if (section === "singles") return primary === "single" || primary === "ep";
+
+    return (
+      primary === "album" &&
+      !secondary.includes("compilation") &&
+      !secondary.includes("live")
+    );
+  });
+}
 
 export function ArtistDrawer({
   details,
   artistSection,
-  filteredAlbums,
+  active,
   setArtistSection,
   isAlbumManaged,
   onOpenAlbum,
 }: ArtistDrawerProps) {
+  const [visitedSections, setVisitedSections] = useState<Set<ArtistSection>>(
+    () => new Set([artistSection]),
+  );
+
+  function selectSection(section: ArtistSection) {
+    setVisitedSections((current) => new Set(current).add(section));
+    setArtistSection(section);
+  }
+
   return (
-    <div className="drawer-content">
+    <div className="drawer-content" hidden={!active}>
       <ArtistArtwork
-        name={details.artist.name}
+        artist={details.artist}
         className="artist-hero metadata-artist-hero"
       />
 
@@ -72,6 +104,8 @@ export function ArtistDrawer({
         <span>{details.discography.length} release groups</span>
       </div>
 
+      <MetadataEnrichment entity={details.artist} />
+
       <section className="drawer-section">
         <div className="drawer-section-heading">
           <div>
@@ -88,41 +122,50 @@ export function ArtistDrawer({
               className={
                 artistSection === tab.id ? "artist-tab artist-tab-active" : "artist-tab"
               }
-              onClick={() => setArtistSection(tab.id)}
+              onClick={() => selectSection(tab.id)}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {filteredAlbums.length === 0 ? (
-          <EmptyState className="drawer-empty" title="Nothing in this category." message="" />
-        ) : (
-          <div className="appears-on-list">
-            {filteredAlbums.map((album) => (
-              <button
-                className="appears-on-item"
-                type="button"
-                key={album.id}
-                onClick={() => onOpenAlbum(album)}
-              >
-                <AlbumArtwork title={album.title} className="appears-on-artwork metadata-result-artwork" />
+        {TABS.map((tab) => {
+          if (!visitedSections.has(tab.id)) return null;
 
-                <div className="appears-on-copy">
-                  <strong>{album.title}</strong>
+          const albums = albumsForSection(details.discography, tab.id);
+          return (
+            <div key={tab.id} hidden={artistSection !== tab.id}>
+              {albums.length === 0 ? (
+                <EmptyState className="drawer-empty" title="Nothing in this category." message="" />
+              ) : (
+                <div className="appears-on-list">
+                  {albums.map((album) => (
+                    <button
+                      className="appears-on-item"
+                      type="button"
+                      key={album.id}
+                      onClick={() => onOpenAlbum(album)}
+                    >
+                      <AlbumArtwork album={album} className="appears-on-artwork metadata-result-artwork" />
 
-                  <span>
-                    {album.year ?? "Unknown"}
-                    {" · "}
-                    {albumTypeLabel(album)}
-                  </span>
+                      <div className="appears-on-copy">
+                        <strong>{album.title}</strong>
+
+                        <span>
+                          {album.year ?? "Unknown"}
+                          {" · "}
+                          {albumTypeLabel(album)}
+                        </span>
+                      </div>
+
+                      <AvailabilityBadge status={isAlbumManaged(album) ? "available" : "none"} />
+                    </button>
+                  ))}
                 </div>
-
-                <AvailabilityBadge status={isAlbumManaged(album) ? "available" : "none"} />
-              </button>
-            ))}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })}
       </section>
     </div>
   );

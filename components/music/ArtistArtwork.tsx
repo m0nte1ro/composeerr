@@ -1,14 +1,16 @@
-import { ArtworkPlaceholder } from "@/components/music/ArtworkPlaceholder";
+import { ResolvedArtwork } from "@/components/music/ResolvedArtwork";
+import type { MetadataArtistResult } from "@/lib/metadata/types";
 
 type ArtistArtworkProps = {
-  name: string;
+  artist: MetadataArtistResult;
   className?: string;
 };
 
-export function ArtistArtwork({ name, className }: ArtistArtworkProps) {
+export function ArtistArtwork({ artist, className }: ArtistArtworkProps) {
   return (
-    <ArtworkPlaceholder
-      label={name}
+    <ResolvedArtwork
+      entity={artist}
+      label={artist.name}
       shape="circle"
       className={className ?? "artist-result-artwork metadata-artist-artwork"}
     />

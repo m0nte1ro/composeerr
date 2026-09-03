@@ -3,6 +3,7 @@ import { AlbumDrawer } from "@/components/drawers/AlbumDrawer";
 import { DrawerHeader } from "@/components/drawers/DrawerHeader";
 import { DrawerShell } from "@/components/drawers/DrawerShell";
 import { SongDrawer } from "@/components/drawers/SongDrawer";
+import { DrawerProviderData } from "@/components/drawers/DrawerProviderData";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ArtistSection } from "@/hooks/useMediaDrawer";
 import type {
@@ -14,6 +15,7 @@ import type {
 
 type MediaDrawerProps = {
   open: boolean;
+  sessionId: number;
   mode: "song" | "album" | "artist" | null;
   loading: boolean;
   error: string | null;
@@ -21,7 +23,6 @@ type MediaDrawerProps = {
   selectedAlbum: MetadataAlbumDetails | null;
   selectedArtist: MetadataArtistDetails | null;
   artistSection: ArtistSection;
-  filteredArtistAlbums: MetadataAlbumResult[];
   requestError: string | null;
   requestingAlbumId: string | null;
   setArtistSection: (section: ArtistSection) => void;
@@ -36,6 +37,7 @@ type MediaDrawerProps = {
 
 export function MediaDrawer({
   open,
+  sessionId,
   mode,
   loading,
   error,
@@ -43,7 +45,6 @@ export function MediaDrawer({
   selectedAlbum,
   selectedArtist,
   artistSection,
-  filteredArtistAlbums,
   requestError,
   requestingAlbumId,
   setArtistSection,
@@ -59,57 +60,59 @@ export function MediaDrawer({
 
   return (
     <DrawerShell open={open} onClose={onClose}>
-      <DrawerHeader
-        mode={mode}
-        showBackArrow={showBackArrow}
-        onBack={onBack}
-        onClose={onClose}
-      />
-
-      {loading && (
-        <div className="drawer-content">
-          <EmptyState className="drawer-empty" title="Loading from MusicBrainz..." message="" />
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="drawer-content">
-          <EmptyState className="drawer-empty" title={error} message="" />
-        </div>
-      )}
-
-      {!loading && !error && mode === "song" && selectedSong && (
-        <SongDrawer
-          details={selectedSong}
-          isAlbumManaged={isAlbumManaged}
-          isAlbumRequested={isAlbumRequested}
-          onOpenAlbum={onOpenAlbum}
+      <DrawerProviderData key={sessionId}>
+        <DrawerHeader
+          mode={mode}
+          showBackArrow={showBackArrow}
+          onBack={onBack}
+          onClose={onClose}
         />
-      )}
 
-      {!loading && !error && mode === "artist" && selectedArtist && (
-        <ArtistDrawer
-          details={selectedArtist}
-          artistSection={artistSection}
-          filteredAlbums={filteredArtistAlbums}
-          setArtistSection={setArtistSection}
-          isAlbumManaged={isAlbumManaged}
-          onOpenAlbum={onOpenAlbum}
-        />
-      )}
+        {loading && (
+          <div className="drawer-content">
+            <EmptyState className="drawer-empty" title="Loading from MusicBrainz..." message="" />
+          </div>
+        )}
 
-      {!loading && !error && mode === "album" && selectedAlbum && (
-        <AlbumDrawer
-          details={selectedAlbum}
-          selectedSongRecordingId={selectedSong?.song.id ?? null}
-          requestError={requestError}
-          requestingAlbumId={requestingAlbumId}
-          isAlbumManaged={isAlbumManaged}
-          isAlbumRequested={isAlbumRequested}
-          getLibraryStatusLabel={getLibraryStatusLabel}
-          onRequestAlbum={onRequestAlbum}
-        />
-      )}
+        {!loading && error && (
+          <div className="drawer-content">
+            <EmptyState className="drawer-empty" title={error} message="" />
+          </div>
+        )}
+
+        {!loading && !error && mode === "song" && selectedSong && (
+          <SongDrawer
+            details={selectedSong}
+            isAlbumManaged={isAlbumManaged}
+            isAlbumRequested={isAlbumRequested}
+            onOpenAlbum={onOpenAlbum}
+          />
+        )}
+
+        {selectedArtist && (
+          <ArtistDrawer
+            details={selectedArtist}
+            artistSection={artistSection}
+            active={!loading && !error && mode === "artist"}
+            setArtistSection={setArtistSection}
+            isAlbumManaged={isAlbumManaged}
+            onOpenAlbum={onOpenAlbum}
+          />
+        )}
+
+        {!loading && !error && mode === "album" && selectedAlbum && (
+          <AlbumDrawer
+            details={selectedAlbum}
+            selectedSongRecordingId={selectedSong?.song.id ?? null}
+            requestError={requestError}
+            requestingAlbumId={requestingAlbumId}
+            isAlbumManaged={isAlbumManaged}
+            isAlbumRequested={isAlbumRequested}
+            getLibraryStatusLabel={getLibraryStatusLabel}
+            onRequestAlbum={onRequestAlbum}
+          />
+        )}
+      </DrawerProviderData>
     </DrawerShell>
   );
 }

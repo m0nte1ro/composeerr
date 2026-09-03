@@ -1,4 +1,5 @@
 import { AlbumArtwork } from "@/components/music/AlbumArtwork";
+import { MetadataEnrichment } from "@/components/drawers/MetadataEnrichment";
 import { TrackList } from "@/components/music/TrackList";
 import { Button } from "@/components/ui/Button";
 import { albumTypeLabel } from "@/lib/metadata/format";
@@ -34,7 +35,7 @@ export function AlbumDrawer({
 
   return (
     <div className="drawer-content">
-      <AlbumArtwork title={album.title} className="drawer-album-artwork metadata-album-hero" />
+      <AlbumArtwork album={album} className="drawer-album-artwork metadata-album-hero" />
 
       <div className="media-kicker">{albumTypeLabel(album)}</div>
 
@@ -43,6 +44,8 @@ export function AlbumDrawer({
         {album.artist}
         {album.year ? ` · ${album.year}` : ""}
       </div>
+
+      <MetadataEnrichment entity={album} />
 
       <section className="drawer-section">
         <div className="drawer-section-heading">

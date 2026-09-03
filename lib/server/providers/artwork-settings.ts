@@ -148,6 +148,11 @@ function getCoverArtArchiveSettings() {
   return { settings, customized };
 }
 
+export function getCurrentCoverArtArchiveConnection() {
+  const { settings } = getCoverArtArchiveSettings();
+  return settings.enabled ? settings : null;
+}
+
 export function getStoredFanartSettings(): StoredFanart | null {
   const row = readSetting(FANART_KEY);
 

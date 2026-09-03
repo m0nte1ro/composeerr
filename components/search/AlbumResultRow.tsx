@@ -20,7 +20,7 @@ export function AlbumResultRow({
 }: AlbumResultRowProps) {
   return (
     <button className="song-result" type="button" onClick={() => onOpen(album)}>
-      <AlbumArtwork title={album.title} className="result-artwork metadata-result-artwork" />
+      <AlbumArtwork album={album} className="result-artwork metadata-result-artwork" />
 
       <div className="song-result-copy">
         <strong>{album.title}</strong>
