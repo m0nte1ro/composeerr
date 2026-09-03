@@ -249,6 +249,28 @@
   color: white;
 }
 
+.provider-add-bar .provider-add-error {
+  grid-column: 1 / -1;
+
+  color: #f87171;
+}
+
+.provider-settings-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  text-decoration: none;
+}
+
+.library-provider-warning {
+  margin-top: 0;
+}
+
+.library-provider-footer {
+  justify-content: flex-end;
+}
+
 .settings-note-stacked {
   flex-direction: column;
 }
@@ -373,6 +395,10 @@
   .provider-add-bar .primary-button,
   .provider-card-actions .primary-button,
   .provider-card-actions .secondary-button {
+    width: 100%;
+  }
+
+  .provider-settings-link {
     width: 100%;
   }
 

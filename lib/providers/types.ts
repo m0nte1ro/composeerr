@@ -111,3 +111,31 @@ export type ArtworkProviderPayload =
       headerName?: string;
       headerSecret?: string;
     };
+
+export const LIBRARY_PROVIDER_KEYS = ["lidarr", "navidrome"] as const;
+
+export type LibraryProviderKey = (typeof LIBRARY_PROVIDER_KEYS)[number];
+
+export type PublicLibraryProvider = {
+  key: LibraryProviderKey;
+  name: string;
+  enabled: boolean;
+  order: number;
+  configured: boolean;
+  url: string;
+  username: string;
+  hasPassword: boolean;
+};
+
+export type LibraryProvidersSettings = {
+  providers: PublicLibraryProvider[];
+  availableProviders: LibraryProviderKey[];
+};
+
+export type LibraryProviderPayload = {
+  key: LibraryProviderKey;
+  enabled: boolean;
+  url?: string;
+  username?: string;
+  password?: string;
+};

@@ -1,6 +1,8 @@
 import type {
   ArtworkProviderPayload,
   ArtworkSettings,
+  LibraryProviderPayload,
+  LibraryProvidersSettings,
   MetadataProviderPayload,
   MetadataProvidersSettings,
 } from "@/lib/providers/types";
@@ -148,4 +150,56 @@ export async function testArtworkProvider(payload: ArtworkProviderPayload) {
     body: JSON.stringify(payload),
   });
   await readResponse(response, "Artwork provider connection test failed.");
+}
+
+export async function getLibraryProviders() {
+  const response = await fetch("/api/settings/library", { cache: "no-store" });
+  const data = await readResponse<LibraryProvidersSettings>(
+    response,
+    "Could not load Library providers.",
+  );
+
+  if (!data.settings) {
+    throw new Error("Could not load Library providers.");
+  }
+
+  return data.settings;
+}
+
+export function addLibraryProvider(payload: LibraryProviderPayload) {
+  return settingsRequest<LibraryProvidersSettings>(
+    "/api/settings/library",
+    "POST",
+    payload,
+    "Could not add Library provider.",
+  );
+}
+
+export function updateLibraryProvider(payload: LibraryProviderPayload) {
+  return settingsRequest<LibraryProvidersSettings>(
+    "/api/settings/library",
+    "PUT",
+    payload,
+    "Could not update Library provider.",
+  );
+}
+
+export function removeLibraryProvider(payload: {
+  key: LibraryProviderPayload["key"];
+}) {
+  return settingsRequest<LibraryProvidersSettings>(
+    "/api/settings/library",
+    "DELETE",
+    payload,
+    "Could not remove Library provider.",
+  );
+}
+
+export async function testLibraryProvider(payload: LibraryProviderPayload) {
+  const response = await fetch("/api/library/providers/test", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  await readResponse(response, "Library provider connection test failed.");
 }
