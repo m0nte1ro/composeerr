@@ -2,8 +2,9 @@
 
 import { useCallback, useState } from "react";
 
-import { loadMetadataDetails } from "@/lib/client/metadata";
+import { loadMetadataDetails, resolveDiscoveryResult } from "@/lib/client/metadata";
 import type {
+  DiscoverySearchResult,
   MetadataAlbumDetails,
   MetadataAlbumResult,
   MetadataArtistDetails,
@@ -26,6 +27,8 @@ export function useMediaDrawer({
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState<string | null>(null);
+  const [pendingDiscovery, setPendingDiscovery] =
+    useState<DiscoverySearchResult | null>(null);
 
   const [selectedSong, setSelectedSong] = useState<MetadataSongDetails | null>(
     null,
@@ -50,10 +53,47 @@ export function useMediaDrawer({
     setDrawerMode(null);
     setDrawerLoading(false);
     setDrawerError(null);
+    setPendingDiscovery(null);
 
     resetSelections();
     setDrawerSessionId((current) => current + 1);
   }, [onNavigationChange, resetSelections]);
+
+  const openDiscovery = useCallback(
+    async (discovery: DiscoverySearchResult) => {
+      onNavigationChange?.();
+      setDrawerMode(discovery.kind);
+      setDrawerLoading(true);
+      setDrawerError(null);
+      setPendingDiscovery(discovery);
+      resetSelections();
+      setDrawerSessionId((current) => current + 1);
+
+      try {
+        const canonical = await resolveDiscoveryResult(discovery);
+        if (canonical.kind !== discovery.kind) {
+          throw new Error("MusicBrainz returned a different result type.");
+        }
+
+        if (canonical.kind === "artist") {
+          setSelectedArtist(await loadMetadataDetails("artist", canonical.id));
+          setArtistSection("albums");
+        } else if (canonical.kind === "album") {
+          setSelectedAlbum(await loadMetadataDetails("album", canonical.id));
+        } else {
+          setSelectedSong(await loadMetadataDetails("song", canonical.id));
+        }
+      } catch (error) {
+        setDrawerError(
+          error instanceof Error ? error.message : "Could not open this result.",
+        );
+      } finally {
+        setPendingDiscovery(null);
+        setDrawerLoading(false);
+      }
+    },
+    [onNavigationChange, resetSelections],
+  );
 
   const openSong = useCallback(
     async (song: MetadataSongResult) => {
@@ -168,6 +208,7 @@ export function useMediaDrawer({
     drawerError,
     drawerOpen: drawerMode !== null,
     drawerSessionId,
+    pendingDiscovery,
     selectedSong,
     selectedAlbum,
     selectedArtist,
@@ -177,6 +218,7 @@ export function useMediaDrawer({
     openSong,
     openAlbum,
     openArtist,
+    openDiscovery,
     goBack,
   };
 }

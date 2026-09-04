@@ -81,15 +81,15 @@ export function HomePageClient() {
     drawerError,
     drawerOpen,
     drawerSessionId,
+    pendingDiscovery,
     selectedSong,
     selectedAlbum,
     selectedArtist,
     artistSection,
     setArtistSection,
     closeDrawer,
-    openSong,
     openAlbum,
-    openArtist,
+    openDiscovery,
     goBack,
   } = useMediaDrawer({
     onNavigationChange: clearRequestError,
@@ -160,17 +160,9 @@ export function HomePageClient() {
           albumResults={albumResults}
           artistResults={artistResults}
           isAlbumRequested={isAlbumRequested}
-          isAlbumManaged={isAlbumManaged}
-          getLibraryStatusLabel={getLibraryStatusLabel}
-          onOpenSong={(song) => {
-            void openSong(song);
-          }}
-          onOpenAlbum={(album) => {
-            void openAlbum(album, false);
-          }}
-          onOpenArtist={(artist) => {
-            void openArtist(artist);
-          }}
+          onOpenSong={openDiscovery}
+          onOpenAlbum={openDiscovery}
+          onOpenArtist={openDiscovery}
         />
 
         {!submittedQuery && (
@@ -188,6 +180,7 @@ export function HomePageClient() {
         mode={drawerMode}
         loading={drawerLoading}
         error={drawerError}
+        pendingDiscovery={pendingDiscovery}
         selectedSong={selectedSong}
         selectedAlbum={selectedAlbum}
         selectedArtist={selectedArtist}

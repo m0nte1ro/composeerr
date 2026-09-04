@@ -1,4 +1,6 @@
 import type {
+  DiscoverySearchResult,
+  MetadataSearchType,
   MetadataAlbumResult,
   MetadataArtistResult,
   MetadataEnrichment,
@@ -18,6 +20,12 @@ const USER_AGENT = "Composeerr/0.1.0 (https://github.com/m0nte1ro/composeerr)";
 type MetadataProviderAdapter = {
   name: string;
   test(connection: MetadataProviderConnection): Promise<void>;
+  search?: (
+    connection: MetadataProviderConnection,
+    type: MetadataSearchType,
+    query: string,
+    limit: number,
+  ) => Promise<DiscoverySearchResult[]>;
 };
 
 export type MetadataProviderConnection = {
@@ -102,6 +110,112 @@ function normalizeMatch(value: unknown) {
 function count(value: unknown) {
   const number = typeof value === "string" ? Number(value) : value;
   return typeof number === "number" && Number.isFinite(number) ? number : null;
+}
+
+const MUSICBRAINZ_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function musicBrainzId(value: unknown) {
+  const id = text(value);
+  return id && MUSICBRAINZ_ID_PATTERN.test(id) ? id : null;
+}
+
+function lastFmArtwork(value: unknown) {
+  if (!Array.isArray(value)) return null;
+
+  const images = value.flatMap((image) => {
+    if (!isObject(image)) return [];
+    const url = text(image["#text"]);
+    const size = text(image.size);
+    return url ? [{ url, size }] : [];
+  });
+  const selected = ["extralarge", "large", "medium"].flatMap((size) =>
+    images.filter((image) => image.size === size),
+  )[0] ?? images.at(-1);
+
+  return selected?.url.includes("2a96cbd8b46e442fc41c2b86b821562f")
+    ? null
+    : selected?.url ?? null;
+}
+
+async function searchLastFm(
+  connection: MetadataProviderConnection,
+  type: MetadataSearchType,
+  query: string,
+  limit: number,
+) {
+  const methodByType = {
+    artist: "artist.search",
+    album: "album.search",
+    song: "track.search",
+  } as const;
+  const parameterByType = {
+    artist: "artist",
+    album: "album",
+    song: "track",
+  } as const;
+  const url = new URL(connection.url);
+  url.searchParams.set("method", methodByType[type]);
+  url.searchParams.set(parameterByType[type], query);
+  url.searchParams.set("format", "json");
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("page", "1");
+
+  if (connection.authMode === "native") {
+    url.searchParams.set("api_key", connection.nativeSecret);
+  }
+
+  const data = await requestJson(connection, url);
+  if (!isObject(data) || "error" in data) {
+    throw new ProviderConnectionError("Last.fm search failed.");
+  }
+
+  const results = isObject(data.results) ? data.results : null;
+  const matchesKey = type === "artist"
+    ? "artistmatches"
+    : type === "album"
+      ? "albummatches"
+      : "trackmatches";
+  const itemKey = type === "artist" ? "artist" : type === "album" ? "album" : "track";
+  const matches = results && isObject(results[matchesKey])
+    ? results[matchesKey]
+    : null;
+  const items = matches && Array.isArray(matches[itemKey]) ? matches[itemKey] : [];
+
+  const discovered = items.flatMap((item, index): Array<{
+    result: DiscoverySearchResult;
+    index: number;
+  }> => {
+    if (!isObject(item)) return [];
+
+    const name = text(item.name);
+    const artist = text(item.artist);
+    if (!name || (type !== "artist" && !artist)) return [];
+
+    const shared = {
+      source: "lastfm" as const,
+      canonical: false,
+      sourceId: text(item.url),
+      musicBrainzId: musicBrainzId(item.mbid),
+      artworkUrl: lastFmArtwork(item.image),
+      listeners: count(item.listeners),
+    };
+
+    if (type === "artist") {
+      return [{ result: { kind: "artist", name, ...shared }, index }];
+    }
+
+    return [{ result: { kind: type, title: name, artist: artist!, ...shared }, index }];
+  });
+
+  if (type !== "album") {
+    discovered.sort((left, right) =>
+      (right.result.listeners ?? -1) - (left.result.listeners ?? -1) ||
+      left.index - right.index,
+    );
+  }
+
+  return discovered.map(({ result }) => result);
 }
 
 async function requestJson(
@@ -292,6 +406,7 @@ export async function resolveAudioDbArtwork(
 const adapters: Record<MetadataProviderKey, MetadataProviderAdapter> = {
   lastfm: {
     name: "Last.fm",
+    search: searchLastFm,
     async test(connection) {
       const url = new URL(connection.url);
       url.searchParams.set("method", "artist.getInfo");
@@ -363,6 +478,26 @@ const adapters: Record<MetadataProviderKey, MetadataProviderAdapter> = {
 
 export function getMetadataProviderName(key: MetadataProviderKey) {
   return adapters[key].name;
+}
+
+export function supportsMetadataDiscoveryProvider(key: MetadataProviderKey) {
+  return Boolean(adapters[key].search);
+}
+
+export async function searchMetadataDiscoveryProvider(
+  connection: MetadataProviderConnection,
+  type: MetadataSearchType,
+  query: string,
+  limit = 25,
+) {
+  const search = adapters[connection.key].search;
+  if (!search) {
+    throw new ProviderConnectionError(
+      `${getMetadataProviderName(connection.key)} does not support discovery search.`,
+    );
+  }
+
+  return search(connection, type, query, limit);
 }
 
 export async function testMetadataProviderConnection(

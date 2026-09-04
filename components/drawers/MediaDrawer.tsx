@@ -7,6 +7,7 @@ import { DrawerProviderData } from "@/components/drawers/DrawerProviderData";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { ArtistSection } from "@/hooks/useMediaDrawer";
 import type {
+  DiscoverySearchResult,
   MetadataAlbumDetails,
   MetadataAlbumResult,
   MetadataArtistDetails,
@@ -19,6 +20,7 @@ type MediaDrawerProps = {
   mode: "song" | "album" | "artist" | null;
   loading: boolean;
   error: string | null;
+  pendingDiscovery: DiscoverySearchResult | null;
   selectedSong: MetadataSongDetails | null;
   selectedAlbum: MetadataAlbumDetails | null;
   selectedArtist: MetadataArtistDetails | null;
@@ -41,6 +43,7 @@ export function MediaDrawer({
   mode,
   loading,
   error,
+  pendingDiscovery,
   selectedSong,
   selectedAlbum,
   selectedArtist,
@@ -70,7 +73,25 @@ export function MediaDrawer({
 
         {loading && (
           <div className="drawer-content">
-            <EmptyState className="drawer-empty" title="Loading from MusicBrainz..." message="" />
+            {pendingDiscovery ? (
+              <>
+                <div className="media-kicker">{pendingDiscovery.kind}</div>
+                <h2 className="drawer-title">
+                  {pendingDiscovery.kind === "artist" ? pendingDiscovery.name : pendingDiscovery.title}
+                </h2>
+                {pendingDiscovery.kind !== "artist" ? (
+                  <div className="drawer-artist">{pendingDiscovery.artist}</div>
+                ) : null}
+                <EmptyState
+                  className="drawer-empty"
+                  style={{ marginTop: 24 }}
+                  title="Matching with MusicBrainz..."
+                  message=""
+                />
+              </>
+            ) : (
+              <EmptyState className="drawer-empty" title="Loading from MusicBrainz..." message="" />
+            )}
           </div>
         )}
 

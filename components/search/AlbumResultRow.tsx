@@ -1,14 +1,13 @@
-import { AlbumArtwork } from "@/components/music/AlbumArtwork";
+import { DiscoveryArtwork } from "@/components/search/DiscoveryArtwork";
 import { AvailabilityBadge } from "@/components/music/AvailabilityBadge";
-import { albumTypeLabel } from "@/lib/metadata/format";
-import type { MetadataAlbumResult } from "@/lib/metadata/types";
+import type { DiscoveryAlbumResult } from "@/lib/metadata/types";
 
 type AlbumResultRowProps = {
-  album: MetadataAlbumResult;
+  album: DiscoveryAlbumResult;
   requested: boolean;
   available: boolean;
   statusLabel: string | null;
-  onOpen: (album: MetadataAlbumResult) => void;
+  onOpen: (album: DiscoveryAlbumResult) => void;
 };
 
 export function AlbumResultRow({
@@ -20,16 +19,13 @@ export function AlbumResultRow({
 }: AlbumResultRowProps) {
   return (
     <button className="song-result" type="button" onClick={() => onOpen(album)}>
-      <AlbumArtwork album={album} className="result-artwork metadata-result-artwork" />
+      <DiscoveryArtwork result={album} className="result-artwork metadata-result-artwork" />
 
       <div className="song-result-copy">
         <strong>{album.title}</strong>
 
         <span>
           {album.artist}
-          {album.year ? ` · ${album.year}` : ""}
-          {" · "}
-          {albumTypeLabel(album)}
         </span>
       </div>
 
