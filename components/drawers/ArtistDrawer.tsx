@@ -17,7 +17,7 @@ type ArtistDrawerProps = {
   artistSection: ArtistSection;
   active: boolean;
   setArtistSection: (section: ArtistSection) => void;
-  isAlbumManaged: (album: MetadataAlbumResult) => boolean;
+  isAlbumAvailable: (album: MetadataAlbumResult) => boolean;
   onOpenAlbum: (album: MetadataAlbumResult) => void;
 };
 
@@ -68,7 +68,7 @@ export function ArtistDrawer({
   artistSection,
   active,
   setArtistSection,
-  isAlbumManaged,
+  isAlbumAvailable,
   onOpenAlbum,
 }: ArtistDrawerProps) {
   const [visitedSections, setVisitedSections] = useState<Set<ArtistSection>>(
@@ -158,7 +158,7 @@ export function ArtistDrawer({
                         </span>
                       </div>
 
-                      <AvailabilityBadge status={isAlbumManaged(album) ? "available" : "none"} />
+                      <AvailabilityBadge status={isAlbumAvailable(album) ? "available" : "none"} />
                     </button>
                   ))}
                 </div>

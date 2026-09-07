@@ -43,6 +43,14 @@ export function HomePageClient() {
     [library.albums],
   );
 
+  const isAlbumAvailable = useCallback(
+    (album: MetadataAlbumResult) => {
+      const match = findLibraryAlbum(library.albums, album);
+      return Boolean(match && match.trackFileCount > 0);
+    },
+    [library.albums],
+  );
+
   const getLibraryStatusLabel = useCallback(
     (album: MetadataAlbumResult) => {
       const libraryAlbum = findLibraryAlbum(library.albums, album);
@@ -189,6 +197,7 @@ export function HomePageClient() {
         requestingAlbumId={requestingAlbumId}
         setArtistSection={setArtistSection}
         isAlbumManaged={isAlbumManaged}
+        isAlbumAvailable={isAlbumAvailable}
         isAlbumRequested={isAlbumRequested}
         getLibraryStatusLabel={getLibraryStatusLabel}
         onClose={closeDrawer}

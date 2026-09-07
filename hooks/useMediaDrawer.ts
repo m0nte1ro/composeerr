@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { loadMetadataDetails, resolveDiscoveryResult } from "@/lib/client/metadata";
 import type {
@@ -24,6 +24,7 @@ type UseMediaDrawerParams = {
 export function useMediaDrawer({
   onNavigationChange,
 }: UseMediaDrawerParams = {}) {
+  const navigationId = useRef(0);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
   const [drawerError, setDrawerError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function useMediaDrawer({
   }, []);
 
   const closeDrawer = useCallback(() => {
+    ++navigationId.current;
     onNavigationChange?.();
 
     setDrawerMode(null);
@@ -61,6 +63,7 @@ export function useMediaDrawer({
 
   const openDiscovery = useCallback(
     async (discovery: DiscoverySearchResult) => {
+      const requestId = ++navigationId.current;
       onNavigationChange?.();
       setDrawerMode(discovery.kind);
       setDrawerLoading(true);
@@ -71,25 +74,32 @@ export function useMediaDrawer({
 
       try {
         const canonical = await resolveDiscoveryResult(discovery);
+        if (requestId !== navigationId.current) return;
         if (canonical.kind !== discovery.kind) {
           throw new Error("MusicBrainz returned a different result type.");
         }
 
         if (canonical.kind === "artist") {
-          setSelectedArtist(await loadMetadataDetails("artist", canonical.id));
+          const details = await loadMetadataDetails("artist", canonical.id);
+          if (requestId !== navigationId.current) return;
+          setSelectedArtist(details);
           setArtistSection("albums");
         } else if (canonical.kind === "album") {
-          setSelectedAlbum(await loadMetadataDetails("album", canonical.id));
+          const details = await loadMetadataDetails("album", canonical.id);
+          if (requestId !== navigationId.current) return;
+          setSelectedAlbum(details);
         } else {
-          setSelectedSong(await loadMetadataDetails("song", canonical.id));
+          const details = await loadMetadataDetails("song", canonical.id);
+          if (requestId !== navigationId.current) return;
+          setSelectedSong(details);
         }
       } catch (error) {
+        if (requestId !== navigationId.current) return;
         setDrawerError(
           error instanceof Error ? error.message : "Could not open this result.",
         );
       } finally {
-        setPendingDiscovery(null);
-        setDrawerLoading(false);
+        if (requestId === navigationId.current) setDrawerLoading(false);
       }
     },
     [onNavigationChange, resetSelections],
@@ -97,7 +107,9 @@ export function useMediaDrawer({
 
   const openSong = useCallback(
     async (song: MetadataSongResult) => {
+      const requestId = ++navigationId.current;
       onNavigationChange?.();
+      setPendingDiscovery(null);
 
       setDrawerMode("song");
       setDrawerLoading(true);
@@ -108,13 +120,15 @@ export function useMediaDrawer({
 
       try {
         const details = await loadMetadataDetails("song", song.id);
+        if (requestId !== navigationId.current) return;
         setSelectedSong(details);
       } catch (error) {
+        if (requestId !== navigationId.current) return;
         setDrawerError(
           error instanceof Error ? error.message : "Could not load song.",
         );
       } finally {
-        setDrawerLoading(false);
+        if (requestId === navigationId.current) setDrawerLoading(false);
       }
     },
     [onNavigationChange, resetSelections],
@@ -122,7 +136,9 @@ export function useMediaDrawer({
 
   const openArtist = useCallback(
     async (artist: MetadataArtistResult) => {
+      const requestId = ++navigationId.current;
       onNavigationChange?.();
+      setPendingDiscovery(null);
 
       setDrawerMode("artist");
       setDrawerLoading(true);
@@ -134,13 +150,15 @@ export function useMediaDrawer({
 
       try {
         const details = await loadMetadataDetails("artist", artist.id);
+        if (requestId !== navigationId.current) return;
         setSelectedArtist(details);
       } catch (error) {
+        if (requestId !== navigationId.current) return;
         setDrawerError(
           error instanceof Error ? error.message : "Could not load artist.",
         );
       } finally {
-        setDrawerLoading(false);
+        if (requestId === navigationId.current) setDrawerLoading(false);
       }
     },
     [onNavigationChange, resetSelections],
@@ -148,7 +166,9 @@ export function useMediaDrawer({
 
   const openAlbum = useCallback(
     async (album: MetadataAlbumResult, preserveParent = true) => {
+      const requestId = ++navigationId.current;
       onNavigationChange?.();
+      setPendingDiscovery(null);
 
       if (!preserveParent) {
         setSelectedSong(null);
@@ -156,7 +176,7 @@ export function useMediaDrawer({
         setDrawerSessionId((current) => current + 1);
       }
 
-      setSelectedAlbum(null);
+      setSelectedAlbum({ album, tracks: [], representativeReleaseId: null });
 
       setDrawerMode("album");
       setDrawerLoading(true);
@@ -164,19 +184,25 @@ export function useMediaDrawer({
 
       try {
         const details = await loadMetadataDetails("album", album.id);
+        if (requestId !== navigationId.current) return;
         setSelectedAlbum(details);
       } catch (error) {
+        if (requestId !== navigationId.current) return;
         setDrawerError(
           error instanceof Error ? error.message : "Could not load album.",
         );
       } finally {
-        setDrawerLoading(false);
+        if (requestId === navigationId.current) setDrawerLoading(false);
       }
     },
     [onNavigationChange],
   );
 
   const goBack = useCallback(() => {
+    ++navigationId.current;
+    setDrawerLoading(false);
+    setDrawerError(null);
+    setPendingDiscovery(null);
     onNavigationChange?.();
 
     if (drawerMode === "album") {

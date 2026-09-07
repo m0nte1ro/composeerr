@@ -29,6 +29,7 @@ type MediaDrawerProps = {
   requestingAlbumId: string | null;
   setArtistSection: (section: ArtistSection) => void;
   isAlbumManaged: (album: MetadataAlbumResult) => boolean;
+  isAlbumAvailable: (album: MetadataAlbumResult) => boolean;
   isAlbumRequested: (albumId: string) => boolean;
   getLibraryStatusLabel: (album: MetadataAlbumResult) => string | null;
   onClose: () => void;
@@ -52,6 +53,7 @@ export function MediaDrawer({
   requestingAlbumId,
   setArtistSection,
   isAlbumManaged,
+  isAlbumAvailable,
   isAlbumRequested,
   getLibraryStatusLabel,
   onClose,
@@ -62,7 +64,7 @@ export function MediaDrawer({
   const showBackArrow = mode === "album" && (Boolean(selectedSong) || Boolean(selectedArtist));
 
   return (
-    <DrawerShell open={open} onClose={onClose}>
+    <DrawerShell open={open} onClose={onClose} className={mode === "album" ? "media-drawer-album" : undefined}>
       <DrawerProviderData key={sessionId}>
         <DrawerHeader
           mode={mode}
@@ -71,7 +73,7 @@ export function MediaDrawer({
           onClose={onClose}
         />
 
-        {loading && (
+        {loading && mode !== "album" && (
           <div className="drawer-content">
             {pendingDiscovery ? (
               <>
@@ -95,7 +97,7 @@ export function MediaDrawer({
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && error && mode !== "album" && (
           <div className="drawer-content">
             <EmptyState className="drawer-empty" title={error} message="" />
           </div>
@@ -104,7 +106,7 @@ export function MediaDrawer({
         {!loading && !error && mode === "song" && selectedSong && (
           <SongDrawer
             details={selectedSong}
-            isAlbumManaged={isAlbumManaged}
+            isAlbumAvailable={isAlbumAvailable}
             isAlbumRequested={isAlbumRequested}
             onOpenAlbum={onOpenAlbum}
           />
@@ -116,14 +118,17 @@ export function MediaDrawer({
             artistSection={artistSection}
             active={!loading && !error && mode === "artist"}
             setArtistSection={setArtistSection}
-            isAlbumManaged={isAlbumManaged}
+            isAlbumAvailable={isAlbumAvailable}
             onOpenAlbum={onOpenAlbum}
           />
         )}
 
-        {!loading && !error && mode === "album" && selectedAlbum && (
+        {mode === "album" && (selectedAlbum || pendingDiscovery?.kind === "album") && (
           <AlbumDrawer
             details={selectedAlbum}
+            preview={pendingDiscovery?.kind === "album" ? pendingDiscovery : null}
+            loading={loading}
+            error={error}
             selectedSongRecordingId={selectedSong?.song.id ?? null}
             requestError={requestError}
             requestingAlbumId={requestingAlbumId}

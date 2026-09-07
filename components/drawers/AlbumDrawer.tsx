@@ -1,3 +1,5 @@
+import { DiscoveryArtwork } from "@/components/search/DiscoveryArtwork";
+import type { DiscoveryAlbumResult } from "@/lib/metadata/types";
 import { AlbumArtwork } from "@/components/music/AlbumArtwork";
 import { MetadataEnrichment } from "@/components/drawers/MetadataEnrichment";
 import { TrackList } from "@/components/music/TrackList";
@@ -9,7 +11,10 @@ import type {
 } from "@/lib/metadata/types";
 
 type AlbumDrawerProps = {
-  details: MetadataAlbumDetails;
+  details: MetadataAlbumDetails | null;
+  preview?: DiscoveryAlbumResult | null;
+  loading?: boolean;
+  error?: string | null;
   selectedSongRecordingId: string | null;
   requestError: string | null;
   requestingAlbumId: string | null;
@@ -21,6 +26,9 @@ type AlbumDrawerProps = {
 
 export function AlbumDrawer({
   details,
+  preview,
+  loading = false,
+  error,
   selectedSongRecordingId,
   requestError,
   requestingAlbumId,
@@ -29,39 +37,55 @@ export function AlbumDrawer({
   getLibraryStatusLabel,
   onRequestAlbum,
 }: AlbumDrawerProps) {
-  const album = details.album;
-  const managed = isAlbumManaged(album);
-  const requested = isAlbumRequested(album.id);
+  const album = details?.album;
+  const display = album ?? preview;
+  if (!display) return null;
+  const ready = Boolean(album) && !loading && !error;
+  const managed = ready && album ? isAlbumManaged(album) : false;
+  const requested = ready && album ? isAlbumRequested(album.id) : false;
 
   return (
-    <div className="drawer-content">
-      <AlbumArtwork album={album} className="drawer-album-artwork metadata-album-hero" />
+    <div className="album-drawer">
+      <div className="drawer-content album-drawer-scroll">
+        {preview && (preview.artworkUrl || preview.canonical || !album) ? (
+          <DiscoveryArtwork result={preview} className="drawer-album-artwork metadata-album-hero" />
+        ) : album ? (
+          <AlbumArtwork album={album} className="drawer-album-artwork metadata-album-hero" />
+        ) : null}
 
-      <div className="media-kicker">{albumTypeLabel(album)}</div>
+        <div className="media-kicker">{album ? albumTypeLabel(album) : "Album"}</div>
 
-      <h2 className="drawer-title">{album.title}</h2>
-      <div className="drawer-artist">
-        {album.artist}
-        {album.year ? ` · ${album.year}` : ""}
-      </div>
-
-      <MetadataEnrichment entity={album} />
-
-      <section className="drawer-section">
-        <div className="drawer-section-heading">
-          <div>
-            <h3>Tracklist</h3>
-            <p>{details.tracks.length} tracks · representative MusicBrainz release</p>
-          </div>
+        <h2 className="drawer-title">{display.title}</h2>
+        <div className="drawer-artist">
+          {display.artist}
+          {album?.year ? ` · ${album.year}` : ""}
         </div>
 
-        <TrackList tracks={details.tracks} selectedRecordingId={selectedSongRecordingId} />
-      </section>
+        {album && !loading && !error && <MetadataEnrichment entity={album} />}
+
+        <section className="drawer-section">
+          <div className="drawer-section-heading">
+            <div>
+              <h3>Tracklist</h3>
+              <p>{loading ? "Loading tracks…" : error ? "Tracklist unavailable" : `${details?.tracks.length ?? 0} tracks`}</p>
+            </div>
+          </div>
+
+          {error ? <p role="alert">{error}</p> : loading ? (
+            <p role="status">Loading album details…</p>
+          ) : <TrackList tracks={details?.tracks ?? []} selectedRecordingId={selectedSongRecordingId} />}
+        </section>
+
+      </div>
 
       <div className="request-area">
         {requestError && <div className="request-error">{requestError}</div>}
 
-        {managed ? (
+        {!ready || !album ? (
+          <Button className="request-button" disabled>
+            {loading ? "Loading album…" : "Album unavailable"}
+          </Button>
+        ) : managed ? (
           <div className="in-library-state">
             <span className="status-dot" />
             {getLibraryStatusLabel(album)}

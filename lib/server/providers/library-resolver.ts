@@ -23,7 +23,13 @@ export async function resolveLibraryAvailability(): Promise<LibraryAvailability>
   );
   const albums = new Map<string, LibraryAlbum>();
 
-  for (const result of results) {
+  // Merge Lidarr management data first, regardless of the Settings order.
+  const orderedResults = [...results].sort(
+    (left, right) => Number(right.key === "lidarr") - Number(left.key === "lidarr"),
+  );
+  const navidromeAlbums = new Map<string, LibraryAlbum>();
+
+  for (const result of orderedResults) {
     if (!result.value) continue;
 
     if (result.key === "lidarr" && "albums" in result.value) {
@@ -58,6 +64,7 @@ export async function resolveLibraryAvailability(): Promise<LibraryAvailability>
           trackCount: album.songCount,
         };
         const key = getLibraryAlbumIdentity(mapped);
+        navidromeAlbums.set(key, mapped);
         const existing = albums.get(key) ?? [...albums.values()].find(
           (candidate) =>
             normalizeLibraryText(candidate.artist) ===
@@ -68,8 +75,8 @@ export async function resolveLibraryAvailability(): Promise<LibraryAvailability>
         if (existing) {
           existing.sources = [...new Set([...existing.sources, "navidrome" as const])];
           existing.status = "available";
-          existing.trackFileCount = Math.max(existing.trackFileCount, mapped.trackFileCount);
-          existing.trackCount = Math.max(existing.trackCount, mapped.trackCount);
+          existing.trackFileCount = mapped.trackFileCount;
+          existing.trackCount = mapped.trackCount;
         } else {
           albums.set(key, mapped);
         }
@@ -78,12 +85,28 @@ export async function resolveLibraryAvailability(): Promise<LibraryAvailability>
   }
 
   const values = [...albums.values()];
+  // A successful Navidrome response (including an empty library) is the
+  // playback inventory. Unmatched Lidarr names must not inflate its totals.
+  const hasNavidromeInventory = results.some(
+    (result) => result.key === "navidrome" && Array.isArray(result.value),
+  );
+  if (hasNavidromeInventory) {
+    for (const album of values) {
+      if (!album.sources.includes("navidrome")) {
+        album.status = "tracked";
+        album.trackFileCount = 0;
+      }
+    }
+  }
+  const inventory = (hasNavidromeInventory ? [...navidromeAlbums.values()] : values)
+    .filter((album) => album.trackFileCount > 0);
+
   return {
     albums: values,
-    albumCount: values.filter((album) => album.status === "available").length,
-    trackFileCount: values.reduce((count, album) => count + album.trackFileCount, 0),
+    albumCount: inventory.length,
+    trackFileCount: inventory.reduce((count, album) => count + album.trackFileCount, 0),
     artistCount: new Set(
-      values.map((album) => normalizeLibraryText(album.artist)),
+      inventory.map((album) => normalizeLibraryText(album.artist)),
     ).size,
   };
 }
