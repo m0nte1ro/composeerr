@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import {
@@ -27,16 +26,16 @@ type SaveSettingsRequest = {
   searchAfterAdd?: boolean;
 };
 
-export const GET = withAuth(async function GET() {
+export async function GET() {
   const settings = getPublicLidarrSettings();
 
   return NextResponse.json({
     ok: true,
     settings,
   });
-}, { admin: true });
+}
 
-export const PUT = withAuth(async function PUT(request: Request) {
+export async function PUT(request: Request) {
   let body: SaveSettingsRequest;
 
   try {
@@ -167,4 +166,4 @@ export const PUT = withAuth(async function PUT(request: Request) {
       },
     );
   }
-}, { admin: true });
+}

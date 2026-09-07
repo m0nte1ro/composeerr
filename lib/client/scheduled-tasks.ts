@@ -1,4 +1,3 @@
-import { apiFetch } from "./http";
 import type {
   ScheduledTaskKey,
   ScheduledTasksSettings,
@@ -20,13 +19,13 @@ async function readSettingsResponse(response: Response, fallback: string) {
 }
 
 export function getScheduledTasks() {
-  return apiFetch("/api/settings/scheduled-tasks", { cache: "no-store" }).then(
+  return fetch("/api/settings/scheduled-tasks", { cache: "no-store" }).then(
     (response) => readSettingsResponse(response, "Could not load scheduled tasks."),
   );
 }
 
 export function updateScheduledTask(payload: ScheduledTaskUpdatePayload) {
-  return apiFetch("/api/settings/scheduled-tasks", {
+  return fetch("/api/settings/scheduled-tasks", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -36,7 +35,7 @@ export function updateScheduledTask(payload: ScheduledTaskUpdatePayload) {
 }
 
 export function runScheduledTask(key: ScheduledTaskKey) {
-  return apiFetch("/api/scheduled-tasks/run", {
+  return fetch("/api/scheduled-tasks/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ key }),

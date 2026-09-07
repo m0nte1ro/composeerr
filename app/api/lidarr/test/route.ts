@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import {
@@ -17,7 +16,7 @@ type TestConnectionRequest = {
   apiKey?: string;
 };
 
-export const POST = withAuth(async function POST(request: Request) {
+export async function POST(request: Request) {
   let body: TestConnectionRequest;
 
   try {
@@ -109,4 +108,4 @@ export const POST = withAuth(async function POST(request: Request) {
       },
     );
   }
-}, { admin: true });
+}

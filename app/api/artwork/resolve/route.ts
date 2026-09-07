@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import { NextRequest, NextResponse } from "next/server";
 
 import type {
@@ -15,7 +14,7 @@ export const runtime = "nodejs";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export const GET = withAuth(async function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type");
   const id = request.nextUrl.searchParams.get("id")?.trim() ?? "";
   const name = request.nextUrl.searchParams.get("name")?.trim() ?? "";
@@ -55,4 +54,4 @@ export const GET = withAuth(async function GET(request: NextRequest) {
     score: 0,
   };
   return NextResponse.json({ ok: true, artwork: await resolveAlbumArtwork(album) });
-});
+}

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATABASE_SCHEMA_VERSION = 4;
+const DATABASE_SCHEMA_VERSION = 3;
 
 function isSqliteBusy(error: unknown) {
   return (
@@ -38,28 +38,6 @@ function applyDatabaseSchema(database: Database.Database) {
   }
 
   database.exec(`
-    CREATE TABLE IF NOT EXISTS auth_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL COLLATE NOCASE UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
-      must_change_password INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS auth_sessions (
-      token_hash TEXT PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
-      expires_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS auth_sessions_user_idx ON auth_sessions(user_id);
-    CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx ON auth_sessions(expires_at);
-    CREATE TABLE IF NOT EXISTS auth_rate_limits (
-      bucket TEXT PRIMARY KEY,
-      attempts INTEGER NOT NULL,
-      resets_at INTEGER NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS auth_rate_limits_expiry_idx ON auth_rate_limits(resets_at);
-
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,

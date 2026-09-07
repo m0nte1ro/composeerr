@@ -6,6 +6,7 @@ import type {
 import { Button } from "@/components/ui/Button";
 import { SearchBar } from "@/components/search/SearchBar";
 import { SearchTypeSelect } from "@/components/search/SearchTypeSelect";
+import { SecondarySearchFilter } from "@/components/search/SecondarySearchFilter";
 import type { MetadataSearchType } from "@/lib/metadata/types";
 
 type SearchHeroProps = {
@@ -54,6 +55,7 @@ export function SearchHero({
         />
 
         <SearchTypeSelect value={searchType} onChange={onTypeChange} />
+        <SecondarySearchFilter />
 
         <Button className="search-button" type="submit" disabled={loading}>
           {loading ? "Searching..." : "Search"}

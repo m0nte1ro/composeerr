@@ -13,7 +13,6 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
-      COMPOSEERR_ORIGIN: ${COMPOSEERR_ORIGIN:-}
 
     init: true
     stop_grace_period: 30s

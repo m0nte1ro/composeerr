@@ -1,4 +1,3 @@
-import { apiFetch } from "./http";
 import type {
   ArtworkProviderPayload,
   ArtworkSettings,
@@ -28,7 +27,7 @@ async function settingsRequest<T>(
   payload?: unknown,
   fallback = "Could not update provider settings.",
 ) {
-  const response = await apiFetch(path, {
+  const response = await fetch(path, {
     method,
     headers: payload ? { "Content-Type": "application/json" } : undefined,
     body: payload ? JSON.stringify(payload) : undefined,
@@ -43,7 +42,7 @@ async function settingsRequest<T>(
 }
 
 export async function getMetadataProviders() {
-  const response = await apiFetch("/api/settings/metadata", { cache: "no-store" });
+  const response = await fetch("/api/settings/metadata", { cache: "no-store" });
   const data = await readResponse<MetadataProvidersSettings>(
     response,
     "Could not load metadata providers.",
@@ -86,7 +85,7 @@ export function removeMetadataProvider(payload: {
 }
 
 export async function testMetadataProvider(payload: MetadataProviderPayload) {
-  const response = await apiFetch("/api/metadata/providers/test", {
+  const response = await fetch("/api/metadata/providers/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -95,7 +94,7 @@ export async function testMetadataProvider(payload: MetadataProviderPayload) {
 }
 
 export async function getArtworkProviders() {
-  const response = await apiFetch("/api/settings/artwork", { cache: "no-store" });
+  const response = await fetch("/api/settings/artwork", { cache: "no-store" });
   const data = await readResponse<ArtworkSettings>(
     response,
     "Could not load artwork providers.",
@@ -145,7 +144,7 @@ export function resetCoverArtArchiveProvider() {
 }
 
 export async function testArtworkProvider(payload: ArtworkProviderPayload) {
-  const response = await apiFetch("/api/artwork/providers/test", {
+  const response = await fetch("/api/artwork/providers/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -154,7 +153,7 @@ export async function testArtworkProvider(payload: ArtworkProviderPayload) {
 }
 
 export async function getLibraryProviders() {
-  const response = await apiFetch("/api/settings/library", { cache: "no-store" });
+  const response = await fetch("/api/settings/library", { cache: "no-store" });
   const data = await readResponse<LibraryProvidersSettings>(
     response,
     "Could not load Library providers.",
@@ -197,7 +196,7 @@ export function removeLibraryProvider(payload: {
 }
 
 export async function testLibraryProvider(payload: LibraryProviderPayload) {
-  const response = await apiFetch("/api/library/providers/test", {
+  const response = await fetch("/api/library/providers/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
