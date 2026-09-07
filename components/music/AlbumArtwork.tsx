@@ -1,14 +1,16 @@
-import { ArtworkPlaceholder } from "@/components/music/ArtworkPlaceholder";
+import { ResolvedArtwork } from "@/components/music/ResolvedArtwork";
+import type { MetadataAlbumResult } from "@/lib/metadata/types";
 
 type AlbumArtworkProps = {
-  title: string;
+  album: MetadataAlbumResult;
   className?: string;
 };
 
-export function AlbumArtwork({ title, className }: AlbumArtworkProps) {
+export function AlbumArtwork({ album, className }: AlbumArtworkProps) {
   return (
-    <ArtworkPlaceholder
-      label={title}
+    <ResolvedArtwork
+      entity={album}
+      label={album.title}
       className={className ?? "result-artwork metadata-result-artwork"}
     />
   );

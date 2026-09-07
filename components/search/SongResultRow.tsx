@@ -1,9 +1,8 @@
-import type { MetadataSongResult } from "@/lib/metadata/types";
-import { formatDuration } from "@/lib/metadata/format";
+import type { DiscoverySongResult } from "@/lib/metadata/types";
 
 type SongResultRowProps = {
-  song: MetadataSongResult;
-  onOpen: (song: MetadataSongResult) => void;
+  song: DiscoverySongResult;
+  onOpen: (song: DiscoverySongResult) => void;
 };
 
 export function SongResultRow({ song, onOpen }: SongResultRowProps) {
@@ -15,12 +14,10 @@ export function SongResultRow({ song, onOpen }: SongResultRowProps) {
         <strong>{song.title}</strong>
         <span>
           {song.artist}
-          {song.firstReleaseYear ? ` · ${song.firstReleaseYear}` : ""}
-          {song.disambiguation ? ` · ${song.disambiguation}` : ""}
+          {song.listeners !== null ? ` · ${song.listeners.toLocaleString()} listeners` : ""}
         </span>
       </div>
 
-      <span className="song-duration">{formatDuration(song.durationMs)}</span>
       <span className="result-chevron">›</span>
     </button>
   );

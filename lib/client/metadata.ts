@@ -1,4 +1,5 @@
 import type {
+  DiscoverySearchResult,
   MetadataAlbumDetails,
   MetadataArtistDetails,
   MetadataSearchResult,
@@ -46,12 +47,28 @@ export async function searchMetadata(type: MetadataSearchType, query: string) {
     cache: "no-store",
   });
 
-  const data = await parseResponse<{ results?: MetadataSearchResult[] }>(
+  const data = await parseResponse<{ results?: DiscoverySearchResult[] }>(
     response,
     "Search failed.",
   );
 
   return data.results ?? [];
+}
+
+export async function resolveDiscoveryResult(
+  discovery: DiscoverySearchResult,
+) {
+  const response = await fetch("/api/metadata/resolve", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(discovery),
+  });
+  const data = await parseResponse<{ canonical: MetadataSearchResult }>(
+    response,
+    "Could not match this result to MusicBrainz.",
+  );
+
+  return data.canonical;
 }
 
 export async function loadMetadataDetails<TType extends MetadataSearchType>(

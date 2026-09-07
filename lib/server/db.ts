@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATABASE_SCHEMA_VERSION = 1;
+const DATABASE_SCHEMA_VERSION = 3;
 
 function isSqliteBusy(error: unknown) {
   return (
@@ -16,6 +16,27 @@ function isSqliteBusy(error: unknown) {
 type ComposeerrDatabase = ReturnType<typeof createDatabase>;
 
 function applyDatabaseSchema(database: Database.Database) {
+  const providerCacheColumns = database
+    .prepare("PRAGMA table_info(provider_cache)")
+    .all() as Array<{ name: string }>;
+  const expectedProviderCacheColumns = new Set([
+    "namespace",
+    "cache_key",
+    "value_json",
+    "expires_at",
+    "updated_at",
+  ]);
+
+  if (
+    providerCacheColumns.length > 0 &&
+    (providerCacheColumns.length !== expectedProviderCacheColumns.size ||
+      !providerCacheColumns.every((column) =>
+        expectedProviderCacheColumns.has(column.name),
+      ))
+  ) {
+    database.exec("DROP TABLE provider_cache");
+  }
+
   database.exec(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -52,6 +73,18 @@ function applyDatabaseSchema(database: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS scheduled_task_runs_task_started_idx
       ON scheduled_task_runs(task_key, started_at DESC);
+
+    CREATE TABLE IF NOT EXISTS provider_cache (
+      namespace TEXT NOT NULL,
+      cache_key TEXT NOT NULL,
+      value_json TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (namespace, cache_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS provider_cache_expires_idx
+      ON provider_cache(expires_at);
   `);
 }
 

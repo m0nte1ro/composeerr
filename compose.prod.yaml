@@ -1,25 +1,26 @@
 services:
   composeerr:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: ${COMPOSEERR_IMAGE:-ghcr.io/m0nte1ro/composeerr:latest}
 
-    image: composeerr:local
-
-    restart: unless-stopped
+    restart: always
 
     ports:
-      - "3000:3000"
+      - "${COMPOSEERR_PORT:-3000}:3000"
 
     volumes:
-      - ./data:/app/data
+      - production_data:/app/data
 
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: "1"
 
     init: true
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     healthcheck:
       test:
@@ -27,9 +28,13 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+          "fetch('http://127.0.0.1:3000/api/health', {signal: AbortSignal.timeout(4000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
         ]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
+
+volumes:
+  production_data:
+    name: composeerr-production-data

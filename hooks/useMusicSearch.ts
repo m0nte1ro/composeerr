@@ -4,29 +4,29 @@ import { useCallback, useMemo, useState, type FormEvent } from "react";
 
 import { searchMetadata } from "@/lib/client/metadata";
 import type {
-  MetadataAlbumResult,
-  MetadataArtistResult,
-  MetadataSearchResult,
+  DiscoveryAlbumResult,
+  DiscoveryArtistResult,
+  DiscoverySearchResult,
+  DiscoverySongResult,
   MetadataSearchType,
-  MetadataSongResult,
 } from "@/lib/metadata/types";
 
 type SearchState =
   | {
       status: "idle";
-      results: MetadataSearchResult[];
+      results: DiscoverySearchResult[];
     }
   | {
       status: "loading";
-      results: MetadataSearchResult[];
+      results: DiscoverySearchResult[];
     }
   | {
       status: "ready";
-      results: MetadataSearchResult[];
+      results: DiscoverySearchResult[];
     }
   | {
       status: "error";
-      results: MetadataSearchResult[];
+      results: DiscoverySearchResult[];
       message: string;
     };
 
@@ -92,7 +92,7 @@ export function useMusicSearch(initialType: MetadataSearchType = "song") {
   const songResults = useMemo(
     () =>
       searchState.results.filter(
-        (result): result is MetadataSongResult => result.kind === "song",
+        (result): result is DiscoverySongResult => result.kind === "song",
       ),
     [searchState.results],
   );
@@ -100,7 +100,7 @@ export function useMusicSearch(initialType: MetadataSearchType = "song") {
   const albumResults = useMemo(
     () =>
       searchState.results.filter(
-        (result): result is MetadataAlbumResult => result.kind === "album",
+        (result): result is DiscoveryAlbumResult => result.kind === "album",
       ),
     [searchState.results],
   );
@@ -108,7 +108,7 @@ export function useMusicSearch(initialType: MetadataSearchType = "song") {
   const artistResults = useMemo(
     () =>
       searchState.results.filter(
-        (result): result is MetadataArtistResult => result.kind === "artist",
+        (result): result is DiscoveryArtistResult => result.kind === "artist",
       ),
     [searchState.results],
   );

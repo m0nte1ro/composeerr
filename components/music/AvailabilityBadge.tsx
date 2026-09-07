@@ -8,7 +8,7 @@ type AvailabilityBadgeProps = {
 export function AvailabilityBadge({ status, title }: AvailabilityBadgeProps) {
   if (status === "available") {
     return (
-      <Badge className="library-badge" title={title ?? "In Lidarr"}>
+      <Badge className="library-badge" title={title ?? "Available in library"}>
         ✓
       </Badge>
     );

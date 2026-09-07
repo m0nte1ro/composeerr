@@ -12,33 +12,18 @@ import { LibraryOverview } from "@/components/home/LibraryOverview";
 import { SearchHero } from "@/components/home/SearchHero";
 import { SearchResults } from "@/components/search/SearchResults";
 import { useAlbumRequest } from "@/hooks/useAlbumRequest";
-import { useLidarrLibrary } from "@/hooks/useLidarrLibrary";
+import { useLibraryAvailability } from "@/hooks/useLibraryAvailability";
 import { useMediaDrawer } from "@/hooks/useMediaDrawer";
 import { useMusicSearch } from "@/hooks/useMusicSearch";
-import type {
-  ComposeerrLibraryAlbum,
-} from "@/lib/lidarr/types";
+import { findLibraryAlbum } from "@/lib/library/match";
 import type {
   MetadataAlbumResult,
 } from "@/lib/metadata/types";
 
-function findLibraryAlbum(
-  albums: ComposeerrLibraryAlbum[],
-  album: MetadataAlbumResult,
-) {
-  const id = album.id.toLowerCase();
-
-  return (
-    albums.find(
-      (candidate) => candidate.musicBrainzReleaseGroupId?.toLowerCase() === id,
-    ) ?? null
-  );
-}
-
 export function HomePageClient() {
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const { status: libraryStatus, library, refreshLibrary } = useLidarrLibrary();
+  const { status: libraryStatus, library, refreshLibrary } = useLibraryAvailability();
 
   const {
     searchType,
@@ -58,6 +43,14 @@ export function HomePageClient() {
     [library.albums],
   );
 
+  const isAlbumAvailable = useCallback(
+    (album: MetadataAlbumResult) => {
+      const match = findLibraryAlbum(library.albums, album);
+      return Boolean(match && match.trackFileCount > 0);
+    },
+    [library.albums],
+  );
+
   const getLibraryStatusLabel = useCallback(
     (album: MetadataAlbumResult) => {
       const libraryAlbum = findLibraryAlbum(library.albums, album);
@@ -74,7 +67,7 @@ export function HomePageClient() {
         return `${libraryAlbum.trackFileCount}/${libraryAlbum.trackCount} tracks`;
       }
 
-      return "In Lidarr";
+      return libraryAlbum.managedByLidarr ? "In Lidarr" : "In library";
     },
     [library.albums],
   );
@@ -95,16 +88,16 @@ export function HomePageClient() {
     drawerLoading,
     drawerError,
     drawerOpen,
+    drawerSessionId,
+    pendingDiscovery,
     selectedSong,
     selectedAlbum,
     selectedArtist,
     artistSection,
-    filteredArtistAlbums,
     setArtistSection,
     closeDrawer,
-    openSong,
     openAlbum,
-    openArtist,
+    openDiscovery,
     goBack,
   } = useMediaDrawer({
     onNavigationChange: clearRequestError,
@@ -175,17 +168,9 @@ export function HomePageClient() {
           albumResults={albumResults}
           artistResults={artistResults}
           isAlbumRequested={isAlbumRequested}
-          isAlbumManaged={isAlbumManaged}
-          getLibraryStatusLabel={getLibraryStatusLabel}
-          onOpenSong={(song) => {
-            void openSong(song);
-          }}
-          onOpenAlbum={(album) => {
-            void openAlbum(album, false);
-          }}
-          onOpenArtist={(artist) => {
-            void openArtist(artist);
-          }}
+          onOpenSong={openDiscovery}
+          onOpenAlbum={openDiscovery}
+          onOpenArtist={openDiscovery}
         />
 
         {!submittedQuery && (
@@ -199,18 +184,20 @@ export function HomePageClient() {
 
       <MediaDrawer
         open={drawerOpen}
+        sessionId={drawerSessionId}
         mode={drawerMode}
         loading={drawerLoading}
         error={drawerError}
+        pendingDiscovery={pendingDiscovery}
         selectedSong={selectedSong}
         selectedAlbum={selectedAlbum}
         selectedArtist={selectedArtist}
         artistSection={artistSection}
-        filteredArtistAlbums={filteredArtistAlbums}
         requestError={requestError}
         requestingAlbumId={requestingAlbumId}
         setArtistSection={setArtistSection}
         isAlbumManaged={isAlbumManaged}
+        isAlbumAvailable={isAlbumAvailable}
         isAlbumRequested={isAlbumRequested}
         getLibraryStatusLabel={getLibraryStatusLabel}
         onClose={closeDrawer}

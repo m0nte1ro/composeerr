@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import type { MetadataSearchType } from "@/lib/metadata/types";
 
-import { getMetadataProvider } from "@/lib/server/metadata";
+import { searchDiscovery } from "@/lib/server/metadata/discovery";
 
 export const runtime = "nodejs";
 
@@ -56,40 +56,18 @@ export async function GET(
     );
   }
 
-  const provider =
-    getMetadataProvider();
-
   try {
-    let results;
-
-    if (type === "artist") {
-      results =
-        await provider.searchArtists(
-          query,
-        );
-    } else if (
-      type === "album"
-    ) {
-      results =
-        await provider.searchAlbums(
-          query,
-        );
-    } else {
-      results =
-        await provider.searchSongs(
-          query,
-        );
-    }
+    const discovery = await searchDiscovery(type, query);
 
     return NextResponse.json({
       ok: true,
 
-      provider: provider.id,
+      provider: discovery.provider,
 
       type,
       query,
 
-      results,
+      results: discovery.results,
     });
   } catch (error) {
     console.error(

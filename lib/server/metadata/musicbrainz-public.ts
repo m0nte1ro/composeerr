@@ -1,4 +1,5 @@
 import type {
+  DiscoverySearchResult,
   MetadataAlbumDetails,
   MetadataAlbumResult,
   MetadataArtistDetails,
@@ -901,6 +902,51 @@ export class MusicBrainzPublicProvider
   readonly name =
     "MusicBrainz Public API";
 
+  async findCanonicalMatches(
+    discovery: DiscoverySearchResult,
+    limit = 10,
+  ) {
+    if (discovery.kind === "artist") {
+      const response = await requestMusicBrainz<ArtistSearchResponse>(
+        this.connection,
+        "artist/",
+        {
+          query: buildSearchQuery("artist", discovery.name),
+          limit,
+        },
+      );
+      return (response.artists ?? []).map((artist) =>
+        mapArtist(artist, discovery.name),
+      );
+    }
+
+    if (discovery.kind === "album") {
+      const response = await requestMusicBrainz<ReleaseGroupSearchResponse>(
+        this.connection,
+        "release-group/",
+        {
+          query: `${buildSearchQuery("releasegroup", discovery.title)} AND ${buildSearchQuery("artist", discovery.artist)} AND primarytype:album`,
+          limit,
+        },
+      );
+      return (response["release-groups"] ?? []).map((album) =>
+        mapReleaseGroup(album, undefined, discovery.title),
+      );
+    }
+
+    const response = await requestMusicBrainz<RecordingSearchResponse>(
+      this.connection,
+      "recording/",
+      {
+        query: `${buildSearchQuery("recording", discovery.title)} AND ${buildSearchQuery("artist", discovery.artist)}`,
+        limit,
+      },
+    );
+    return (response.recordings ?? [])
+      .map((recording) => mapRecording(recording, discovery.title))
+      .sort((a, b) => b.score - a.score);
+  }
+
   async searchArtists(
   query: string,
   limit = 25,
@@ -1154,6 +1200,10 @@ const response =
         ];
 
       if (!group) {
+        continue;
+      }
+
+      if (group["primary-type"]?.toLowerCase() !== "album") {
         continue;
       }
 

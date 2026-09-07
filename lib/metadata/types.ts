@@ -3,6 +3,39 @@ export type MetadataSearchType =
   | "album"
   | "artist";
 
+export type DiscoveryProviderId = "lastfm" | "musicbrainz-public";
+
+type DiscoveryResultBase = {
+  source: DiscoveryProviderId;
+  canonical: boolean;
+  sourceId: string | null;
+  musicBrainzId: string | null;
+  artworkUrl: string | null;
+  listeners: number | null;
+};
+
+export type DiscoveryArtistResult = DiscoveryResultBase & {
+  kind: "artist";
+  name: string;
+};
+
+export type DiscoveryAlbumResult = DiscoveryResultBase & {
+  kind: "album";
+  title: string;
+  artist: string;
+};
+
+export type DiscoverySongResult = DiscoveryResultBase & {
+  kind: "song";
+  title: string;
+  artist: string;
+};
+
+export type DiscoverySearchResult =
+  | DiscoveryArtistResult
+  | DiscoveryAlbumResult
+  | DiscoverySongResult;
+
 export type MetadataArtistResult = {
   kind: "artist";
 
@@ -83,4 +116,17 @@ export type MetadataAlbumDetails = {
 export type MetadataArtistDetails = {
   artist: MetadataArtistResult;
   discography: MetadataAlbumResult[];
+};
+
+export type MetadataEnrichment = {
+  description: string | null;
+  tags: string[];
+  listeners: number | null;
+  playCount: number | null;
+  providerNames: string[];
+};
+
+export type ArtworkResolution = {
+  url: string | null;
+  provider: string | null;
 };

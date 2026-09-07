@@ -211,6 +211,19 @@ export function getMetadataProvidersSettings(): MetadataProvidersSettings {
   };
 }
 
+export function getEnabledMetadataProviders(): MetadataProviderConnection[] {
+  const settings = getMetadataProvidersSettings();
+
+  return settings.providers.flatMap((provider) => {
+    if (!provider.enabled) {
+      return [];
+    }
+
+    const stored = getStoredMetadataProvider(provider.key);
+    return stored ? [stored] : [];
+  });
+}
+
 function resolvePayload(
   payload: MetadataProviderPayload,
   existing: StoredMetadataProvider | null,

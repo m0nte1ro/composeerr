@@ -17,7 +17,7 @@ export function getArtworkProviderName(key: ArtworkProviderKey) {
   return key === "cover-art-archive" ? "Cover Art Archive" : "Fanart.tv";
 }
 
-type CoverArtArchiveConnection = {
+export type CoverArtArchiveConnection = {
   url: string;
   authMode: ArtworkAuthMode;
   username: string;
@@ -43,6 +43,40 @@ function getCoverArtArchiveHeaders(connection: CoverArtArchiveConnection) {
   }
 
   return headers;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export async function resolveCoverArtArchiveAlbum(
+  connection: CoverArtArchiveConnection,
+  releaseGroupId: string,
+) {
+  const response = await providerFetch(
+    `${connection.url}/release-group/${encodeURIComponent(releaseGroupId)}`,
+    { headers: getCoverArtArchiveHeaders(connection) },
+    "Cover Art Archive",
+  );
+
+  if (response.status === 404) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+
+  const data = await readProviderJson(response, "Cover Art Archive");
+  const images = isObject(data) && Array.isArray(data.images) ? data.images : [];
+  const front = images.find(
+    (image) => isObject(image) && image.front === true,
+  );
+
+  if (!isObject(front)) {
+    return null;
+  }
+
+  const thumbnails = isObject(front.thumbnails) ? front.thumbnails : null;
+  const imageUrl = thumbnails?.["1200"] ?? thumbnails?.large ?? front.image;
+  return typeof imageUrl === "string" ? imageUrl : null;
 }
 
 export async function testCoverArtArchiveConnection(
@@ -77,7 +111,7 @@ export type FanartConnection = {
   headerSecret: string;
 };
 
-export async function testFanartConnection(connection: FanartConnection) {
+function getFanartHeaders(connection: FanartConnection) {
   const headers: Record<string, string> = {
     Accept: "application/json",
     "User-Agent": USER_AGENT,
@@ -97,9 +131,61 @@ export async function testFanartConnection(connection: FanartConnection) {
     headers[connection.headerName] = connection.headerSecret;
   }
 
+  return headers;
+}
+
+async function getFanartArtist(connection: FanartConnection, artistId: string) {
+  const response = await providerFetch(
+    `${connection.url.replace(/\/+$/, "")}/music/${encodeURIComponent(artistId)}`,
+    { headers: getFanartHeaders(connection) },
+    "Fanart.tv",
+  );
+
+  if (response.status === 404) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+
+  const data = await readProviderJson(response, "Fanart.tv");
+  return isObject(data) ? data : null;
+}
+
+function firstFanartUrl(value: unknown) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const image = value.find((item) => isObject(item) && typeof item.url === "string");
+  return isObject(image) && typeof image.url === "string" ? image.url : null;
+}
+
+export async function resolveFanartArtist(
+  connection: FanartConnection,
+  artistId: string,
+) {
+  const data = await getFanartArtist(connection, artistId);
+  return data
+    ? firstFanartUrl(data.artistthumb) ?? firstFanartUrl(data.artistbackground)
+    : null;
+}
+
+export async function resolveFanartAlbum(
+  connection: FanartConnection,
+  artistId: string,
+  releaseGroupId: string,
+) {
+  const data = await getFanartArtist(connection, artistId);
+  const albums = data && isObject(data.albums) ? data.albums : null;
+  const album = albums && isObject(albums[releaseGroupId])
+    ? albums[releaseGroupId]
+    : null;
+  return album ? firstFanartUrl(album.albumcover) : null;
+}
+
+export async function testFanartConnection(connection: FanartConnection) {
   const response = await providerFetch(
     `${connection.url.replace(/\/+$/, "")}/music/${TEST_ARTIST_ID}`,
-    { headers },
+    { headers: getFanartHeaders(connection) },
     "Fanart.tv",
   );
   const data = await readProviderJson(response, "Fanart.tv");

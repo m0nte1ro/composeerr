@@ -14,7 +14,7 @@ export function LibraryOverview({
       <div className="section-header">
         <div>
           <h2>Your library</h2>
-          <p>Live state from Lidarr.</p>
+          <p>Live state from your enabled Library providers.</p>
         </div>
       </div>
 
@@ -22,19 +22,19 @@ export function LibraryOverview({
         <div className="flow-card">
           <span className="flow-number">ALBUMS</span>
           <strong>{albumCount}</strong>
-          <p>Albums with files known by Lidarr.</p>
+          <p>Albums available from your library.</p>
         </div>
 
         <div className="flow-card">
           <span className="flow-number">TRACKS</span>
           <strong>{trackFileCount}</strong>
-          <p>Track files currently indexed by Lidarr.</p>
+          <p>Track files currently indexed.</p>
         </div>
 
         <div className="flow-card">
           <span className="flow-number">ARTISTS</span>
           <strong>{artistCount}</strong>
-          <p>Artists managed by Lidarr.</p>
+          <p>Artists found across enabled providers.</p>
         </div>
       </div>
     </section>

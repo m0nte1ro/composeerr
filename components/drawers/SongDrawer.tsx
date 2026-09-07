@@ -9,14 +9,14 @@ import type {
 
 type SongDrawerProps = {
   details: MetadataSongDetails;
-  isAlbumManaged: (album: MetadataAlbumResult) => boolean;
+  isAlbumAvailable: (album: MetadataAlbumResult) => boolean;
   isAlbumRequested: (albumId: string) => boolean;
   onOpenAlbum: (album: MetadataAlbumResult) => void;
 };
 
 export function SongDrawer({
   details,
-  isAlbumManaged,
+  isAlbumAvailable,
   isAlbumRequested,
   onOpenAlbum,
 }: SongDrawerProps) {
@@ -62,7 +62,7 @@ export function SongDrawer({
                 key={album.id}
                 onClick={() => onOpenAlbum(album)}
               >
-                <AlbumArtwork title={album.title} className="appears-on-artwork metadata-result-artwork" />
+                <AlbumArtwork album={album} className="appears-on-artwork metadata-result-artwork" />
 
                 <div className="appears-on-copy">
                   <strong>{album.title}</strong>
@@ -76,7 +76,7 @@ export function SongDrawer({
 
                 <AvailabilityBadge
                   status={
-                    isAlbumManaged(album)
+                    isAlbumAvailable(album)
                       ? "available"
                       : isAlbumRequested(album.id)
                         ? "requested"

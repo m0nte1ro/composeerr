@@ -3,5 +3,13 @@
   "dockerComposeFile": "../compose.yaml",
   "service": "composeerr",
   "workspaceFolder": "/app",
-  "shutdownAction": "stopCompose"
+  "shutdownAction": "none",
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "openai.chatgpt"
+      ]
+    }
+  }
 }

@@ -5,10 +5,10 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { LoadingState } from "@/components/ui/LoadingState";
 import type {
-  MetadataAlbumResult,
-  MetadataArtistResult,
+  DiscoveryAlbumResult,
+  DiscoveryArtistResult,
+  DiscoverySongResult,
   MetadataSearchType,
-  MetadataSongResult,
 } from "@/lib/metadata/types";
 
 type SearchResultsProps = {
@@ -16,15 +16,13 @@ type SearchResultsProps = {
   status: "idle" | "loading" | "ready" | "error";
   errorMessage?: string;
   searchType: MetadataSearchType;
-  songResults: MetadataSongResult[];
-  albumResults: MetadataAlbumResult[];
-  artistResults: MetadataArtistResult[];
+  songResults: DiscoverySongResult[];
+  albumResults: DiscoveryAlbumResult[];
+  artistResults: DiscoveryArtistResult[];
   isAlbumRequested: (albumId: string) => boolean;
-  isAlbumManaged: (album: MetadataAlbumResult) => boolean;
-  getLibraryStatusLabel: (album: MetadataAlbumResult) => string | null;
-  onOpenSong: (song: MetadataSongResult) => void;
-  onOpenAlbum: (album: MetadataAlbumResult) => void;
-  onOpenArtist: (artist: MetadataArtistResult) => void;
+  onOpenSong: (song: DiscoverySongResult) => void;
+  onOpenAlbum: (album: DiscoveryAlbumResult) => void;
+  onOpenArtist: (artist: DiscoveryArtistResult) => void;
 };
 
 export function SearchResults({
@@ -36,8 +34,6 @@ export function SearchResults({
   albumResults,
   artistResults,
   isAlbumRequested,
-  isAlbumManaged,
-  getLibraryStatusLabel,
   onOpenSong,
   onOpenAlbum,
   onOpenArtist,
@@ -58,7 +54,7 @@ export function SearchResults({
       <div className="section-header">
         <div>
           <h2>Search results</h2>
-          <p>Real MusicBrainz results matching “{submittedQuery}”</p>
+          <p>Discovery results matching “{submittedQuery}”</p>
         </div>
 
         {status === "ready" && (
@@ -70,8 +66,8 @@ export function SearchResults({
 
       {status === "loading" && (
         <LoadingState
-          title="Searching MusicBrainz..."
-          message="Public API mode respects the global rate limit."
+          title="Searching music..."
+          message=""
         />
       )}
 
@@ -85,21 +81,21 @@ export function SearchResults({
 
       {status === "ready" && searchType === "song" && (
         <div className="song-results">
-          {songResults.map((song) => (
-            <SongResultRow key={song.id} song={song} onOpen={onOpenSong} />
+          {songResults.map((song, index) => (
+            <SongResultRow key={song.sourceId ?? song.musicBrainzId ?? `${song.title}:${song.artist}:${index}`} song={song} onOpen={onOpenSong} />
           ))}
         </div>
       )}
 
       {status === "ready" && searchType === "album" && (
         <div className="song-results">
-          {albumResults.map((album) => (
+          {albumResults.map((album, index) => (
             <AlbumResultRow
-              key={album.id}
+              key={album.sourceId ?? album.musicBrainzId ?? `${album.title}:${album.artist}:${index}`}
               album={album}
-              requested={isAlbumRequested(album.id)}
-              available={isAlbumManaged(album)}
-              statusLabel={getLibraryStatusLabel(album)}
+              requested={Boolean(album.canonical && album.musicBrainzId && isAlbumRequested(album.musicBrainzId))}
+              available={false}
+              statusLabel={null}
               onOpen={onOpenAlbum}
             />
           ))}
@@ -108,8 +104,8 @@ export function SearchResults({
 
       {status === "ready" && searchType === "artist" && (
         <div className="song-results">
-          {artistResults.map((artist) => (
-            <ArtistResultRow key={artist.id} artist={artist} onOpen={onOpenArtist} />
+          {artistResults.map((artist, index) => (
+            <ArtistResultRow key={artist.sourceId ?? artist.musicBrainzId ?? `${artist.name}:${index}`} artist={artist} onOpen={onOpenArtist} />
           ))}
         </div>
       )}
