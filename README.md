@@ -54,14 +54,12 @@ This leaves the dependency volume intact.
 
 ## Production
 
-Production uses the optimized `production` Docker target and `next start`. It remains separate from the default development environment:
+Pushes to `main` build and publish `ghcr.io/m0nte1ro/composeerr` on GitHub Actions.
+A self-hosted runner labeled `composeerr-prod` deploys that exact image digest to
+`/opt/composeerr`. The LXC does not build the application.
 
-```bash
-docker compose -f compose.prod.yaml up -d --build
-```
+Production uses Next.js standalone, a persistent named volume, `restart: always`,
+rotated logs and `/api/health` for Docker and Uptime Kuma monitoring.
 
-Production continues to persist SQLite data in `./data`, independently of the Docker-managed development database. Stop it with:
-
-```bash
-docker compose -f compose.prod.yaml down
-```
+See [the deployment guide](docs/DEPLOYMENT.md) for the required one-time Docker and
+runner installation, manual deployment, autostart, monitoring and backups.

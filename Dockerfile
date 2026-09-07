@@ -51,10 +51,6 @@ COPY . .
 RUN npm run build
 
 
-FROM builder AS production-dependencies
-
-RUN npm prune --omit=dev
-
 
 FROM node:24-bookworm-slim AS production
 
@@ -70,14 +66,19 @@ RUN apt-get update \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=production-dependencies /app ./
+COPY --chown=node:node --from=builder /app/.next/standalone ./
+COPY --chown=node:node --from=builder /app/.next/static ./.next/static
+COPY --chown=node:node --from=builder /app/public ./public
 
 # The official Node image provides the non-root node user (UID/GID 1000).
 RUN mkdir -p /app/data \
-    && chown -R node:node /app
+    && chown node:node /app/data
 
 USER node
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:3000/api/health', {signal: AbortSignal.timeout(4000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+
+CMD ["node", "server.js"]
