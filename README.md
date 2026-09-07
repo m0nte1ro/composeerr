@@ -1,6 +1,6 @@
 # Composeerr
 
-Composeerr is a self-hosted music request application. Docker provides the complete development toolchain, including Node.js, npm, native build dependencies, TypeScript, and ESLint.
+Composeerr is a self-hosted music request application. Docker provides the complete development toolchain, including Node.js, npm, native build dependencies, TypeScript, and ESLint. It's great.
 
 ## Development
 
