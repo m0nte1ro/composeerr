@@ -1,3 +1,4 @@
+import { apiFetch } from "./http";
 import type { LidarrOptions, LidarrSystemStatus } from "@/lib/lidarr/types";
 
 export type PublicLidarrSettings = {
@@ -30,7 +31,7 @@ function ensureOkResponse<T extends { ok?: boolean; error?: string }>(
 }
 
 export async function getLidarrSettings() {
-  const response = await fetch("/api/settings/lidarr", {
+  const response = await apiFetch("/api/settings/lidarr", {
     cache: "no-store",
   });
 
@@ -46,7 +47,7 @@ export async function getLidarrSettings() {
 }
 
 export async function getLidarrOptions() {
-  const response = await fetch("/api/lidarr/options", {
+  const response = await apiFetch("/api/lidarr/options", {
     cache: "no-store",
   });
 
@@ -75,7 +76,7 @@ export async function testLidarrConnection(payload: {
   url: string;
   apiKey?: string;
 }) {
-  const response = await fetch("/api/lidarr/test", {
+  const response = await apiFetch("/api/lidarr/test", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -103,7 +104,7 @@ export async function testLidarrConnection(payload: {
 }
 
 export async function saveLidarrSettings(payload: LidarrSettingsPayload) {
-  const response = await fetch("/api/settings/lidarr", {
+  const response = await apiFetch("/api/settings/lidarr", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",

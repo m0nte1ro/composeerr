@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import {
@@ -17,7 +18,7 @@ type RequestBody = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   let body: RequestBody;
 
   try {
@@ -148,4 +149,4 @@ export async function POST(request: Request) {
       },
     );
   }
-}
+});

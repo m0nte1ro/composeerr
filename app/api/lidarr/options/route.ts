@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import { getLidarrOptions, LidarrRequestError } from "@/lib/server/lidarr";
@@ -6,7 +7,7 @@ import { getLidarrSettings } from "@/lib/server/lidarr-settings";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   const settings = getLidarrSettings();
 
   if (!settings) {
@@ -54,4 +55,4 @@ export async function GET() {
       },
     );
   }
-}
+}, { admin: true });

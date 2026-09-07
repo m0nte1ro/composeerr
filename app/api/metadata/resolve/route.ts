@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { DiscoverySearchResult } from "@/lib/metadata/types";
@@ -39,7 +40,7 @@ function isDiscoveryResult(value: unknown): value is DiscoverySearchResult {
   );
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   let discovery: unknown;
 
   try {
@@ -74,4 +75,4 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-}
+});

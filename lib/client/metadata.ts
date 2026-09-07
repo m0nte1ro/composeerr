@@ -1,3 +1,4 @@
+import { apiFetch } from "./http";
 import type {
   DiscoverySearchResult,
   MetadataAlbumDetails,
@@ -43,7 +44,7 @@ export async function searchMetadata(type: MetadataSearchType, query: string) {
     q: query,
   });
 
-  const response = await fetch(`/api/metadata/search?${params}`, {
+  const response = await apiFetch(`/api/metadata/search?${params}`, {
     cache: "no-store",
   });
 
@@ -58,7 +59,7 @@ export async function searchMetadata(type: MetadataSearchType, query: string) {
 export async function resolveDiscoveryResult(
   discovery: DiscoverySearchResult,
 ) {
-  const response = await fetch("/api/metadata/resolve", {
+  const response = await apiFetch("/api/metadata/resolve", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(discovery),
@@ -80,7 +81,7 @@ export async function loadMetadataDetails<TType extends MetadataSearchType>(
     id,
   });
 
-  const response = await fetch(`/api/metadata/details?${params}`, {
+  const response = await apiFetch(`/api/metadata/details?${params}`, {
     cache: "no-store",
   });
 

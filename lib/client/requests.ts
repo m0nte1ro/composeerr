@@ -1,9 +1,10 @@
+import { apiFetch } from "./http";
 import type { LidarrAlbumRequestResult } from "@/lib/lidarr/types";
 
 export async function requestAlbumByReleaseGroupId(
   musicBrainzReleaseGroupId: string,
 ) {
-  const response = await fetch("/api/lidarr/request", {
+  const response = await apiFetch("/api/lidarr/request", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

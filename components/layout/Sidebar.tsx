@@ -1,13 +1,17 @@
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import type { AuthUser } from "@/lib/auth/types";
 import { SidebarNavItem } from "@/components/layout/SidebarNavItem";
 import { LibraryStatusWidget } from "@/components/layout/LibraryStatusWidget";
 
 type SidebarProps = {
+  user: AuthUser;
   libraryStatus: "loading" | "ready" | "error";
   albumCount: number;
   trackFileCount: number;
 };
 
 export function Sidebar({
+  user,
   libraryStatus,
   albumCount,
   trackFileCount,
@@ -31,6 +35,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer">
+        <AccountMenu user={user} />
         <SidebarNavItem icon="⚙" label="Settings" href="/settings" />
 
         <LibraryStatusWidget

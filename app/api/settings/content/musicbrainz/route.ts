@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { MusicBrainzSettingsPayload } from "@/lib/content/musicbrainz-settings";
@@ -10,11 +11,11 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   return NextResponse.json({ ok: true, settings: getPublicMusicBrainzSettings() });
-}
+}, { admin: true });
 
-export async function PUT(request: Request) {
+export const PUT = withAuth(async function PUT(request: Request) {
   let body: MusicBrainzSettingsPayload;
 
   try {
@@ -39,9 +40,9 @@ export async function PUT(request: Request) {
       { status: 500 },
     );
   }
-}
+}, { admin: true });
 
-export async function DELETE() {
+export const DELETE = withAuth(async function DELETE() {
   try {
     return NextResponse.json({ ok: true, settings: resetMusicBrainzSettings() });
   } catch {
@@ -51,4 +52,4 @@ export async function DELETE() {
       { status: 500 },
     );
   }
-}
+}, { admin: true });

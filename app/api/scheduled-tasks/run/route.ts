@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { ScheduledTaskKey } from "@/lib/scheduler/types";
@@ -10,7 +11,7 @@ import { getScheduledTasksSettings } from "@/lib/server/scheduler/store";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   let key: ScheduledTaskKey;
 
   try {
@@ -45,4 +46,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+}, { admin: true });

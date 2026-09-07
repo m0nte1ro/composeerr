@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation";
 
 import { SETTINGS_NAVIGATION } from "@/components/settings/settings-navigation";
 
-export function SettingsNavigation() {
+export function SettingsNavigation({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav className="settings-navigation" aria-label="Settings sections">
-      {SETTINGS_NAVIGATION.map((item) => (
+      {SETTINGS_NAVIGATION.filter((item) => isAdmin || item.href === "/settings/general").map((item) => (
         <Link
           key={item.href}
           href={item.href}

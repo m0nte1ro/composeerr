@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { ScheduledTaskUpdatePayload } from "@/lib/scheduler/types";
@@ -9,11 +10,11 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   return NextResponse.json({ ok: true, settings: getScheduledTasksSettings() });
-}
+}, { admin: true });
 
-export async function PUT(request: Request) {
+export const PUT = withAuth(async function PUT(request: Request) {
   let body: ScheduledTaskUpdatePayload;
 
   try {
@@ -38,4 +39,4 @@ export async function PUT(request: Request) {
       { status: 500 },
     );
   }
-}
+}, { admin: true });
