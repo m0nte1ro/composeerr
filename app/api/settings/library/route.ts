@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { LibraryProviderPayload } from "@/lib/providers/types";
@@ -31,11 +32,11 @@ function handleError(error: unknown) {
   );
 }
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   return NextResponse.json({ ok: true, settings: getLibraryProvidersSettings() });
-}
+}, { admin: true });
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   try {
     return NextResponse.json({
       ok: true,
@@ -44,9 +45,9 @@ export async function POST(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });
 
-export async function PUT(request: Request) {
+export const PUT = withAuth(async function PUT(request: Request) {
   try {
     return NextResponse.json({
       ok: true,
@@ -55,9 +56,9 @@ export async function PUT(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });
 
-export async function DELETE(request: Request) {
+export const DELETE = withAuth(async function DELETE(request: Request) {
   try {
     const body = await readBody(request);
     return NextResponse.json({
@@ -67,4 +68,4 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });

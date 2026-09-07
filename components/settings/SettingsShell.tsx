@@ -1,13 +1,16 @@
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import type { AuthUser } from "@/lib/auth/types";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SettingsNavigation } from "@/components/settings/SettingsNavigation";
 
 type SettingsShellProps = {
+  user: AuthUser;
   children: ReactNode;
 };
 
-export function SettingsShell({ children }: SettingsShellProps) {
+export function SettingsShell({ children, user }: SettingsShellProps) {
   return (
     <div className="settings-page">
       <aside className="settings-sidebar">
@@ -19,7 +22,8 @@ export function SettingsShell({ children }: SettingsShellProps) {
           </div>
         </Link>
 
-        <SettingsNavigation />
+        <SettingsNavigation isAdmin={user.role === "admin" && !user.mustChangePassword} />
+        <AccountMenu user={user} />
 
         <Link href="/" className="settings-back">
           ← Back to Composeerr
