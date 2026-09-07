@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { ArtworkProviderPayload } from "@/lib/providers/types";
@@ -9,7 +10,7 @@ import { ProviderConnectionError } from "@/lib/server/providers/http";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   let body: ArtworkProviderPayload;
 
   try {
@@ -41,4 +42,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+}, { admin: true });

@@ -1,3 +1,4 @@
+import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { ArtworkProviderPayload } from "@/lib/providers/types";
@@ -33,11 +34,11 @@ function handleError(error: unknown) {
   );
 }
 
-export async function GET() {
+export const GET = withAuth(async function GET() {
   return NextResponse.json({ ok: true, settings: getArtworkSettings() });
-}
+}, { admin: true });
 
-export async function POST(request: Request) {
+export const POST = withAuth(async function POST(request: Request) {
   try {
     const body = await readBody(request);
 
@@ -49,9 +50,9 @@ export async function POST(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });
 
-export async function PUT(request: Request) {
+export const PUT = withAuth(async function PUT(request: Request) {
   try {
     const body = await readBody(request);
     let settings;
@@ -68,9 +69,9 @@ export async function PUT(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });
 
-export async function DELETE(request: Request) {
+export const DELETE = withAuth(async function DELETE(request: Request) {
   try {
     let key: unknown;
 
@@ -92,4 +93,4 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return handleError(error);
   }
-}
+}, { admin: true });

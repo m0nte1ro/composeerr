@@ -69,6 +69,8 @@ RUN apt-get update \
 COPY --chown=node:node --from=builder /app/.next/standalone ./
 COPY --chown=node:node --from=builder /app/.next/static ./.next/static
 COPY --chown=node:node --from=builder /app/public ./public
+COPY --chown=node:node --from=builder /app/scripts/reset-password.mjs ./scripts/reset-password.mjs
+COPY --chown=node:node --from=builder /app/lib/server/auth/password-crypto.mjs ./lib/server/auth/password-crypto.mjs
 
 # The official Node image provides the non-root node user (UID/GID 1000).
 RUN mkdir -p /app/data \

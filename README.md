@@ -52,6 +52,99 @@ docker compose up
 
 This leaves the dependency volume intact.
 
+## Accounts and sign-in
+
+On a new or upgraded instance, sign in with **admin / admin**. You must change
+this password in **Settings → General** before accessing the library or provider
+settings. Complete this first login before exposing a new installation publicly.
+The default account is created only when there are no accounts; restarting or
+upgrading does not reset an existing password.
+
+Registration starts **closed**. The admin can enable **Allow new registrations**
+in General, let trusted users create accounts at `/register`, and close it again.
+Anyone who can reach the site can register and request albums while registration
+is open. Closing it does not disable existing accounts. Usernames are case
+insensitive and use 3–32 letters, numbers, dots, underscores or hyphens; new
+passwords need 8–128 characters. No email or external identity provider is needed.
+
+All users can change their own password using their current password, new
+password, and confirmation. Regular users see only this form in Settings.
+Provider configuration, credentials, connection tests and scheduled-task controls
+are admin-only, including direct API access.
+
+Accounts, hashed passwords, sessions and settings persist in the existing SQLite
+data volume. Sign in on another device to use the same instance and its configured
+providers. Provider keys and configuration are shared by the instance, not separate
+per-user copies. Sessions last 30 days. Signing out ends that device's session;
+changing a password signs out every other device.
+
+### Forgotten password
+
+Recovery is available through the Docker command below; no assistant or database editing is needed.
+Production installations must first deploy an image containing the recovery command.
+
+The instance owner can reset any account from the server terminal, without the old
+password. Run this from the directory containing your Compose file:
+
+```bash
+# Development
+docker compose exec composeerr node scripts/reset-password.mjs admin
+
+# Production
+docker compose -f compose.prod.yaml exec composeerr node scripts/reset-password.mjs admin
+```
+
+Replace `admin` with the account's username. If already inside the container, run
+`node scripts/reset-password.mjs admin`. In the development checkout,
+`npm run reset-password -- admin` is also available. Use the same Compose project
+and environment files as your running instance.
+
+The command displays a random temporary password in your terminal. Sign in with it
+and choose a new password in General. It revokes that account's sessions and clears
+its login/password attempt limits, while preserving other accounts, registration
+settings and provider configuration. No restart is needed. A missing database or
+unknown username produces an error; it does not create or wipe an instance.
+
+Users without access to the server should ask the instance owner for a reset.
+The login page includes this guidance under **Forgot password?** Recovery requires
+server access because accounts have no email or external identity provider.
+
+### Public websites and reverse proxies
+
+Serve public installations over HTTPS. Configure the proxy to preserve the
+original `Host` and set `X-Forwarded-Proto`. For an explicit public URL, add this
+to your Compose `.env` file and recreate the service:
+
+```dotenv
+COMPOSEERR_ORIGIN=https://music.example.com
+```
+
+This optional setting pins the allowed origin for state-changing requests and
+ensures HTTPS session cookies behind a proxy. Without it, Composeerr uses the
+request host and protocol, so local HTTP development still works. Once set, use
+that URL to sign in; other origins cannot submit forms. The public `/api/health`
+endpoint continues to work without a session.
+
+Authentication uses Node's asynchronous scrypt password hashing, random session
+cookies with server-side revocation, origin validation for mutations, and SQLite
+limits on login, registration and password-change attempts. The password hashing
+parameters follow [OWASP's scrypt guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
+
+### Authentication checks
+
+Run inside the development container (or prefix with `docker compose exec composeerr`):
+
+```bash
+npm run lint
+npm run build
+npm run test:auth
+```
+
+The integration suite starts a separate production server with a temporary SQLite
+database. It checks anonymous access to all application APIs, admin permissions,
+bootstrap, registration, password changes, CSRF, rate limits and sessions across a
+server restart. It does not call live providers or modify your instance data.
+
 ## Production
 
 Pushes to `main` build and publish `ghcr.io/m0nte1ro/composeerr` on GitHub Actions.

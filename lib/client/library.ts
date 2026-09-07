@@ -1,8 +1,9 @@
+import { apiFetch } from "./http";
 import type { ComposeerrLibrary } from "@/lib/lidarr/types";
 import type { LibraryAvailability } from "@/lib/library/types";
 
 export async function fetchLidarrLibrary(): Promise<ComposeerrLibrary> {
-  const response = await fetch("/api/lidarr/library", {
+  const response = await apiFetch("/api/lidarr/library", {
     cache: "no-store",
   });
 
@@ -20,7 +21,7 @@ export async function fetchLidarrLibrary(): Promise<ComposeerrLibrary> {
 }
 
 export async function fetchLibraryAvailability(): Promise<LibraryAvailability> {
-  const response = await fetch("/api/library", { cache: "no-store" });
+  const response = await apiFetch("/api/library", { cache: "no-store" });
   const data = (await response.json()) as {
     ok?: boolean;
     library?: LibraryAvailability;
