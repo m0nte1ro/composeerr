@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import { NextRequest, NextResponse } from "next/server";
 
 import type { MetadataSearchType } from "@/lib/metadata/types";
@@ -14,7 +13,7 @@ const VALID_TYPES =
     "artist",
   ]);
 
-export const GET = withAuth(async function GET(
+export async function GET(
   request: NextRequest,
 ) {
   const query =
@@ -88,4 +87,4 @@ export const GET = withAuth(async function GET(
       },
     );
   }
-});
+}

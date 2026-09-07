@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import { NextResponse } from "next/server";
 
 import type { LibraryProviderPayload } from "@/lib/providers/types";
@@ -11,7 +10,7 @@ import {
 
 export const runtime = "nodejs";
 
-export const POST = withAuth(async function POST(request: Request) {
+export async function POST(request: Request) {
   let body: LibraryProviderPayload;
 
   try {
@@ -47,4 +46,4 @@ export const POST = withAuth(async function POST(request: Request) {
       { status: 500 },
     );
   }
-}, { admin: true });
+}

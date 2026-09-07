@@ -1,4 +1,3 @@
-import { apiFetch } from "./http";
 import type {
   MusicBrainzSettingsPayload,
   PublicMusicBrainzSettings,
@@ -31,14 +30,14 @@ async function readSettingsResponse(response: Response, fallback: string) {
 
 export async function getMusicBrainzSettings() {
   return readSettingsResponse(
-    await apiFetch("/api/settings/content/musicbrainz", { cache: "no-store" }),
+    await fetch("/api/settings/content/musicbrainz", { cache: "no-store" }),
     "Could not load MusicBrainz settings.",
   );
 }
 
 export async function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload) {
   return readSettingsResponse(
-    await apiFetch("/api/settings/content/musicbrainz", {
+    await fetch("/api/settings/content/musicbrainz", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -49,13 +48,13 @@ export async function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayloa
 
 export async function resetMusicBrainzSettings() {
   return readSettingsResponse(
-    await apiFetch("/api/settings/content/musicbrainz", { method: "DELETE" }),
+    await fetch("/api/settings/content/musicbrainz", { method: "DELETE" }),
     "Could not reset MusicBrainz settings.",
   );
 }
 
 export async function testMusicBrainzConnection(payload: MusicBrainzSettingsPayload) {
-  const response = await apiFetch("/api/content/musicbrainz/test", {
+  const response = await fetch("/api/content/musicbrainz/test", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

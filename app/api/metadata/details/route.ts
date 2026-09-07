@@ -1,4 +1,3 @@
-import { withAuth } from "@/lib/server/auth/http";
 import {
   NextRequest,
   NextResponse,
@@ -22,7 +21,7 @@ const VALID_TYPES =
     "artist",
   ]);
 
-export const GET = withAuth(async function GET(
+export async function GET(
   request: NextRequest,
 ) {
   const id =
@@ -111,4 +110,4 @@ export const GET = withAuth(async function GET(
       },
     );
   }
-});
+}

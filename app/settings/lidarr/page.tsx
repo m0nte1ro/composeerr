@@ -1,7 +1,5 @@
-import { requirePageUser } from "@/lib/server/auth/pages";
 import { LidarrSettingsPageClient } from "@/components/settings/LidarrSettingsPageClient";
 
-export default async function LidarrSettingsPage() {
-  await requirePageUser({ admin: true });
+export default function LidarrSettingsPage() {
   return <LidarrSettingsPageClient />;
 }

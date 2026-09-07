@@ -6,9 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "test:auth": "node --test tests/auth.integration.mjs",
-    "reset-password": "node scripts/reset-password.mjs"
+    "lint": "eslint"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

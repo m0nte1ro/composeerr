@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import type { AuthUser } from "@/lib/auth/types";
 
 import { useCallback, useEffect, useRef } from "react";
 
@@ -21,7 +20,7 @@ import type {
   MetadataAlbumResult,
 } from "@/lib/metadata/types";
 
-export function HomePageClient({ user }: { user: AuthUser }) {
+export function HomePageClient() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { status: libraryStatus, library, refreshLibrary } = useLibraryAvailability();
@@ -124,7 +123,6 @@ export function HomePageClient({ user }: { user: AuthUser }) {
     <AppShell
       sidebar={
         <Sidebar
-          user={user}
           libraryStatus={libraryStatus}
           albumCount={library.albumCount}
           trackFileCount={library.trackFileCount}

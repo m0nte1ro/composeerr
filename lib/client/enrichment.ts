@@ -1,4 +1,3 @@
-import { apiFetch } from "./http";
 import type {
   ArtworkResolution,
   MetadataAlbumResult,
@@ -23,7 +22,7 @@ function entityParams(entity: EnrichmentEntity) {
 }
 
 export async function loadArtwork(entity: EnrichmentEntity) {
-  const response = await apiFetch(`/api/artwork/resolve?${entityParams(entity)}`);
+  const response = await fetch(`/api/artwork/resolve?${entityParams(entity)}`);
   const data = (await response.json()) as {
     ok?: boolean;
     artwork?: ArtworkResolution;
@@ -37,7 +36,7 @@ export async function loadArtwork(entity: EnrichmentEntity) {
 }
 
 export async function loadEnrichment(entity: EnrichmentEntity) {
-  const response = await apiFetch(`/api/metadata/enrichment?${entityParams(entity)}`);
+  const response = await fetch(`/api/metadata/enrichment?${entityParams(entity)}`);
   const data = (await response.json()) as {
     ok?: boolean;
     enrichment?: MetadataEnrichment | null;

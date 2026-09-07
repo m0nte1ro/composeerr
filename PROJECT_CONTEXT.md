@@ -201,6 +201,7 @@ Examples include:
 - `SongResultRow`
 - `AlbumResultRow`
 - `ArtistResultRow`
+- `SecondarySearchFilter`
 
 ### Music UI
 
@@ -814,20 +815,9 @@ Future work should grow the reusable Settings shell rather than creating another
 
 ## General
 
-Implemented local authentication:
+Generic Composeerr instance/application behavior.
 
-- Username/password only; no email or external identity provider.
-- Offline recovery: `node scripts/reset-password.mjs <username>` inside the instance container generates a temporary password, forces a change, revokes that account’s sessions and clears its auth attempt limits. Shared hashing lives in password-crypto.mjs; Docker includes the CLI and this module. Login help and README explain recovery.
-- SQLite stores accounts, scrypt password hashes, hashed session tokens and auth rate limits.
-- Initial account: admin/admin, created only if no accounts exist. Password change is mandatory before using the application.
-- Registration is disabled by default. Only the admin can enable/disable it in General.
-- Every user can change their own password with current/new/confirmation fields. Other sessions are revoked on change.
-- Regular users see only General with their password form. Other Settings pages and APIs, provider tests and task controls require admin access.
-- All application APIs require a session; auth entry points and the minimal healthcheck are public. Origin checks protect mutations.
-- Provider settings remain shared instance configuration, available across devices; they are not per-user copies.
-- Optional COMPOSEERR_ORIGIN configures the public origin and HTTPS cookies behind reverse proxies.
-- Auth logic lives in lib/server/auth; existing route handlers use withAuth, and pages use requirePageUser. Keep checks at those boundaries when adding routes.
-- npm run test:auth exercises a built application with an isolated temporary database. See README for setup and test instructions.
+Exact options can evolve later.
 
 ## Lidarr
 
@@ -1051,7 +1041,7 @@ The secondary string only constrains the query.
 
 No secondary entity lookup/MBID resolution should be introduced for now.
 
-The unused “All releases” secondary dropdown has been removed. Search currently shows the query input, Song/Album/Artist selector, and Search button. Composite filtering remains planned.
+`SecondarySearchFilter.tsx` currently exists as scaffold and may still be non-functional; inspect the current repo before implementation.
 
 ---
 
@@ -1138,7 +1128,7 @@ Known areas:
 - Home orchestration still contains some cross-hook coordination
 - Settings orchestration must evolve for multiple tabs/providers
 - `ProviderCard` is currently more presentation than full provider-schema abstraction
-- composite search filtering is not yet implemented
+- `SecondarySearchFilter` may still be scaffold-only
 - some CSS remains global/cross-domain
 - drawer back behavior is not a fully generic stack
 - some shared/server Lidarr typing boundaries may still be imperfect

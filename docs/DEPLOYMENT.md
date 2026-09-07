@@ -201,18 +201,3 @@ docker run --rm --user 0 --entrypoint sh \
 ```
 
 Do not run this over an existing populated volume.
-
-## Local accounts
-
-After the first start, sign in with **admin / admin** and change the default
-password in **Settings → General** before making the site public. Registration
-is closed by default and can be opened or closed there by the admin.
-
-For public HTTPS deployments, set `COMPOSEERR_ORIGIN=https://your-host.example`
-in the Compose `.env` file, then recreate the service. Preserve the original
-`Host` and set `X-Forwarded-Proto` in your reverse proxy. No email or identity
-provider setup is required. Accounts, sessions and provider settings are all
-stored in the production data volume. See [accounts and sign-in](../README.md#accounts-and-sign-in)
-for permissions, registration and cross-device behavior.
-
-If a password is forgotten, run `docker compose -f compose.prod.yaml exec composeerr node scripts/reset-password.mjs admin` on the server (using your usual Compose project and environment files). Replace `admin` with the username. The command prints a temporary password and signs out that account; sign in and choose a new password. See [password recovery](../README.md#forgotten-password). The command is included in newly built production images.
