@@ -3,12 +3,10 @@ import type {
   MetadataSearchResult,
   MetadataSearchType,
 } from "@/lib/metadata/types";
-import { getMetadataProvider } from "@/lib/server/metadata";
-import {
-  searchMetadataDiscoveryProvider,
-  supportsMetadataDiscoveryProvider,
-} from "@/lib/server/providers/metadata-adapters";
-import { getEnabledMetadataProviders } from "@/lib/server/providers/metadata-settings";
+import { MusicBrainzPublicProvider } from "./musicbrainz-public";
+import { getIdentitySearchConnection, getSearchEngine } from "../search-settings";
+import { getStoredMetadataProvider } from "../providers/metadata-settings";
+import { searchMetadataDiscoveryProvider } from "../providers/metadata-adapters";
 
 function fromCanonical(result: MetadataSearchResult): DiscoverySearchResult {
   const shared = {
@@ -33,7 +31,7 @@ function fromCanonical(result: MetadataSearchResult): DiscoverySearchResult {
 }
 
 async function searchMusicBrainz(type: MetadataSearchType, query: string) {
-  const provider = getMetadataProvider();
+  const provider = new MusicBrainzPublicProvider(getIdentitySearchConnection());
   const results = type === "artist"
     ? await provider.searchArtists(query)
     : type === "album"
@@ -47,20 +45,10 @@ async function searchMusicBrainz(type: MetadataSearchType, query: string) {
 }
 
 export async function searchDiscovery(type: MetadataSearchType, query: string) {
-  const connection = getEnabledMetadataProviders().find((provider) =>
-    supportsMetadataDiscoveryProvider(provider.key),
-  );
-
-  if (connection) {
-    try {
-      return {
-        provider: connection.key,
-        results: await searchMetadataDiscoveryProvider(connection, type, query),
-      };
-    } catch {
-      // Discovery provider failures fall back to canonical search.
-    }
+  if (getSearchEngine() === "lastfm") {
+    const connection = getStoredMetadataProvider("lastfm");
+    if (!connection) throw new Error("Search provider is not configured.");
+    return { provider: "lastfm", results: await searchMetadataDiscoveryProvider(connection, type, query) };
   }
-
   return searchMusicBrainz(type, query);
 }

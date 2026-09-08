@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:auth": "node --test tests/auth.integration.mjs",
+    "test:reset": "node --test tests/reset-instance.integration.mjs",
     "reset-password": "node scripts/reset-password.mjs"
   },
   "dependencies": {

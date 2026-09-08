@@ -52,14 +52,57 @@ docker compose up
 
 This leaves the dependency volume intact.
 
+For an explicit reset **with a database backup**, stop the application and run:
+
+```bash
+docker compose stop composeerr
+docker compose run --rm --no-deps composeerr node scripts/reset-instance.mjs --confirm
+docker compose up -d
+```
+
+The backup is saved inside the data volume under `backups/`. This command clears
+accounts, sessions, settings, task history and caches. It is never run automatically
+and is not part of an update. Normal rebuilds and restarts retain the data volume.
+
+To replay the provider setup while retaining accounts, sessions and API settings,
+run this from `/app` in the instance environment, with the application stopped:
+
+```bash
+node scripts/reset-instance.mjs --setup-only --confirm
+```
+
+Restart the app, sign in as an administrator and open `/setup`. This starts at
+Search; a full reset without `--setup-only` also repeats administrator creation.
+Both modes create a backup first.
+
 ## Accounts and sign-in
 
-On a new or upgraded instance, sign in with **admin / admin**. You must change
-this password in **Settings → General** before accessing the library or provider
-settings. Complete this first login before exposing a new installation publicly.
-The default account is created only when there are no accounts; restarting or
-upgrading does not reset an existing password.
+A fresh instance opens `/setup`. Create your administrator account, then configure
+Search, Lidarr, Content, Metadata and Artwork. There are no default credentials.
+Search, Lidarr and Content require a successful connection test before Next;
+editing the configuration invalidates that test. This test gate is client-side.
+Each completed step is saved, so signing in again resumes unfinished setup.
+Metadata and Artwork reuse the Settings cards; save any edits before continuing.
 
+Existing accounts and provider configuration survive upgrades. Versioned SQLite
+migrations mark an existing installation as configured without forcing setup again.
+Never delete the data volume or run a reset command as part of an ordinary update.
+
+Settings contains General, Lidarr, Search, Content, Metadata, Artwork and Scheduled
+Tasks. Existing optional Library providers are retained under Lidarr.
+
+Search selects Last.fm or MusicBrainz explicitly. Last.fm credentials are shared
+with Metadata, while enrichment can be enabled separately. MusicBrainz Search
+and Content have independent endpoints and authentication. Content can optionally
+follow the saved MusicBrainz Search configuration. A lookup-only local mirror works
+for Content: its connection test retrieves an artist by MBID, whereas the Search
+test performs an indexed search. Last.fm results without an MBID are matched using
+the MusicBrainz Search endpoint (public by default), never the Content mirror.
+
+Admins can create users and administrators, delete other accounts, and reset their
+passwords in General. Reset displays a new temporary password once, revokes the
+account's sessions and requires a password change. An admin cannot delete their own
+account; the last administrator is protected.
 Registration starts **closed**. The admin can enable **Allow new registrations**
 in General, let trusted users create accounts at `/register`, and close it again.
 Anyone who can reach the site can register and request albums while registration
@@ -138,12 +181,14 @@ Run inside the development container (or prefix with `docker compose exec compos
 npm run lint
 npm run build
 npm run test:auth
+npm run test:reset
 ```
 
 The integration suite starts a separate production server with a temporary SQLite
 database. It checks anonymous access to all application APIs, admin permissions,
-bootstrap, registration, password changes, CSRF, rate limits and sessions across a
-server restart. It does not call live providers or modify your instance data.
+setup, user management, registration, password changes, CSRF, rate limits, additive
+migrations and sessions across a server restart. Local HTTP fixtures also verify
+independent search/content connections and lookup-only MusicBrainz mirrors. It does not call live providers or modify your instance data.
 
 ## Production
 

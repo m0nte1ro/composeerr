@@ -180,7 +180,8 @@ async function searchLastFm(
   const matches = results && isObject(results[matchesKey])
     ? results[matchesKey]
     : null;
-  const items = matches && Array.isArray(matches[itemKey]) ? matches[itemKey] : [];
+  if (!matches || !Array.isArray(matches[itemKey])) throw new ProviderConnectionError("Last.fm returned an invalid search response.");
+  const items = matches[itemKey];
 
   const discovered = items.flatMap((item, index): Array<{
     result: DiscoverySearchResult;

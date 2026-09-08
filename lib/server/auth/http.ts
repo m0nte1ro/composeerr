@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { AuthUser } from "@/lib/auth/types";
+import { getSetupState } from "../setup";
 import { AuthError } from "./errors";
 import { currentUser } from "./sessions";
 
@@ -92,6 +93,11 @@ export function withAuth<T extends Request = NextRequest>(
         throw new AuthError("Change your password in General settings first.", 403);
       }
       if (options.admin && user.role !== "admin") throw new AuthError("Administrator access is required.", 403);
+      if (!getSetupState().complete) {
+        const path = new URL(request.url).pathname;
+        const setupRoute = path === "/api/setup" || path.startsWith("/api/auth/") || (options.admin && (path.startsWith("/api/settings/") || path.endsWith("/test") || path === "/api/lidarr/options"));
+        if (!setupRoute) throw new AuthError("Complete initial setup first.", 403);
+      }
       checkOrigin(request);
       return privateResponse(await handler(request, user));
     } catch (error) {

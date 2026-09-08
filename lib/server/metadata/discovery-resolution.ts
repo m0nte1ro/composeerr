@@ -10,6 +10,9 @@ import { getMusicBrainzConnection } from "@/lib/server/musicbrainz-settings";
 import { getProviderCache, setProviderCache } from "@/lib/server/providers/cache";
 import { getRuntimeConnectionKey } from "@/lib/server/providers/runtime-key";
 
+import { MusicBrainzPublicProvider } from "./musicbrainz-public";
+import { getIdentitySearchConnection } from "../search-settings";
+
 const RESOLUTION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const RESOLUTION_CACHE_VERSION = 1;
 
@@ -77,7 +80,7 @@ async function canonicalById(
 export async function resolveDiscoveryIdentity(
   discovery: DiscoverySearchResult,
 ): Promise<MetadataSearchResult | null> {
-  const connectionKey = getRuntimeConnectionKey(getMusicBrainzConnection());
+  const connectionKey = getRuntimeConnectionKey([getMusicBrainzConnection(), getIdentitySearchConnection()]);
   const cacheKey = `v${RESOLUTION_CACHE_VERSION}:${connectionKey}:${getRuntimeConnectionKey(discovery)}`;
   const cached = getProviderCache<MetadataSearchResult>(
     "discovery-identity",
@@ -90,7 +93,7 @@ export async function resolveDiscoveryIdentity(
     : null;
 
   if (!canonical) {
-    const candidates = await getMetadataProvider().findCanonicalMatches(discovery);
+    const candidates = await new MusicBrainzPublicProvider(getIdentitySearchConnection()).findCanonicalMatches(discovery);
     const exact = candidates.filter((candidate) =>
       matchesDiscovery(discovery, candidate),
     );

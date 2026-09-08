@@ -1,5 +1,33 @@
 # Composeerr Project Context
 
+## Setup and Settings implementation (current)
+
+- New instances require `/setup`: create admin, Search, Lidarr, Content, Metadata, Artwork.
+- No default admin/admin account. Setup progress and completion are persisted.
+- Existing installations migrate additively using SQLite `user_version`; accounts,
+  sessions and provider configuration survive upgrades and do not trigger setup again.
+- Reset is explicit: `scripts/reset-instance.mjs --confirm` creates a backup before
+  clearing instance data. Add `--setup-only` to reopen provider setup while retaining
+  accounts, sessions and API settings. Stop the app first. Never run this script during updates.
+- Settings tabs: General, Lidarr, Search, Content, Metadata, Artwork, Scheduled Tasks.
+  Existing optional Library providers remain accessible within the Lidarr page.
+- General includes admin user management. Temporary resets revoke sessions and
+  require password changes. Regular users only see their own password form.
+- Search selects Last.fm or MusicBrainz explicitly, independently of enrichment.
+  Last.fm credentials are shared with Metadata; disabling enrichment keeps search working.
+- `search.musicbrainz` and `content.musicbrainz` store independent connections.
+  Content can follow MusicBrainz Search through `content.use_search` without copying secrets.
+- Content tests retrieve an artist by MBID and work with lookup-only HTTP mirrors.
+  Search tests exercise indexed search. Last.fm identities without MBIDs are resolved
+  through MusicBrainz Search, never through the Content mirror's search service.
+- Setup reuses the Settings provider cards. Search/Lidarr/Content Next requires a
+  successful current-form test in the frontend only. Editing invalidates the result,
+  including edits during an in-flight test. Optional provider edits must be saved.
+- Scheduler execution waits for completed setup; task locks and schedules remain intact.
+- `npm run test:auth` covers setup, permissions, user administration, independent
+  provider endpoints with local HTTP fixtures, restart persistence and legacy migration.
+
+
 ## Purpose
 
 Composeerr is a self-hosted music request application, conceptually similar to “Seerr for music”.
@@ -45,7 +73,7 @@ Current behavior:
 - Song search searches recording titles.
 - Album search returns MusicBrainz release groups whose primary type is Album.
 - Artist search returns artists.
-- Search uses MusicBrainz public API through the metadata provider abstraction.
+- Search explicitly uses Last.fm or MusicBrainz through the discovery boundary, with separate Content settings.
 
 ### Song flow
 
@@ -801,7 +829,7 @@ Intended Settings information architecture:
 ```text
 General
 Lidarr
-Library
+Search
 Content
 Metadata
 Artwork
@@ -819,7 +847,7 @@ Implemented local authentication:
 - Username/password only; no email or external identity provider.
 - Offline recovery: `node scripts/reset-password.mjs <username>` inside the instance container generates a temporary password, forces a change, revokes that account’s sessions and clears its auth attempt limits. Shared hashing lives in password-crypto.mjs; Docker includes the CLI and this module. Login help and README explain recovery.
 - SQLite stores accounts, scrypt password hashes, hashed session tokens and auth rate limits.
-- Initial account: admin/admin, created only if no accounts exist. Password change is mandatory before using the application.
+- Initial account: created by the instance owner in `/setup`; no default credentials.
 - Registration is disabled by default. Only the admin can enable/disable it in General.
 - Every user can change their own password with current/new/confirmation fields. Other sessions are revoked on change.
 - Regular users see only General with their password form. Other Settings pages and APIs, provider tests and task controls require admin access.

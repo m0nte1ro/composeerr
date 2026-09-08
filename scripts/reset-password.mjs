@@ -29,7 +29,7 @@ async function main() {
 
   try {
     if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'auth_users'").get()) {
-      throw new Error("Accounts have not been initialized. Open Composeerr and sign in with admin / admin first.");
+      throw new Error("Accounts have not been initialized. Open Composeerr and create the administrator in initial setup first.");
     }
     const user = db.prepare("SELECT id, username FROM auth_users WHERE username = ? COLLATE NOCASE").get(args[0]);
     if (!user) throw new Error("Account not found. Check the username and which instance you are running this command in.");

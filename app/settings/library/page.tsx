@@ -1,7 +1,3 @@
+import { redirect } from "next/navigation";
 import { requirePageUser } from "@/lib/server/auth/pages";
-import { LibrarySettingsPageClient } from "@/components/settings/LibrarySettingsPageClient";
-
-export default async function LibrarySettingsPage() {
-  await requirePageUser({ admin: true });
-  return <LibrarySettingsPageClient />;
-}
+export default async function LibrarySettingsPage() { await requirePageUser({ admin: true }); redirect("/settings/lidarr#library-providers"); }

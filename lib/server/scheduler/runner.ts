@@ -1,3 +1,4 @@
+import { getSetupState } from "@/lib/server/setup";
 import { randomUUID } from "node:crypto";
 
 import type { ScheduledTaskKey } from "@/lib/scheduler/types";
@@ -66,6 +67,7 @@ export async function runScheduledTask(key: ScheduledTaskKey) {
 }
 
 export async function runDueScheduledTasks() {
+  if (!getSetupState().complete) return;
   recoverExpiredTaskLocks();
   const keys = getDueTaskKeys();
   await Promise.allSettled(keys.map((key) => runScheduledTask(key)));

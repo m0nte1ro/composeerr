@@ -1,6 +1,7 @@
 "use client";
+import { useSetupFormState } from "@/components/setup/SetupFormState";
 
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { ConnectionTestStatus } from "@/components/settings/ConnectionTestStatus";
 import { ProviderCard } from "@/components/settings/ProviderCard";
@@ -12,8 +13,10 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { useLidarrSettings } from "@/hooks/useLidarrSettings";
 
-export function LidarrSettingsPageClient() {
+export function LidarrSettingsPageClient({ onContinue }: { onContinue?: () => Promise<void> }) {
+  const [nextError, setNextError] = useState("");
   const {
+    tested,
     loading,
     options,
     connectionState,
@@ -41,8 +44,9 @@ export function LidarrSettingsPageClient() {
     markAsEdited,
     testConnection,
     saveSettings,
-  } = useLidarrSettings();
+  } = useLidarrSettings(Boolean(onContinue));
 
+  useSetupFormState("lidarr", false, saveState === "saving" || connectionState.status === "testing");
   function handleTest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void testConnection();
@@ -74,6 +78,7 @@ export function LidarrSettingsPageClient() {
             }
           >
             <form onSubmit={handleTest}>
+              <fieldset className="provider-fields" disabled={saveState === "saving"}>
               <div className="settings-field">
                 <label htmlFor="lidarr-url">Lidarr URL</label>
                 <Input
@@ -105,6 +110,7 @@ export function LidarrSettingsPageClient() {
                     setShowApiKey(false);
                   }}
                   onCancelEditing={() => {
+                    connectionChanged();
                     setEditingApiKey(false);
                     setApiKey("");
                     setShowApiKey(false);
@@ -119,6 +125,7 @@ export function LidarrSettingsPageClient() {
               </div>
 
               <ConnectionTestStatus state={connectionState} />
+              {nextError && <p role="alert" className="form-error">{nextError}</p>}
 
               <div className="settings-actions settings-actions-test">
                 <Button
@@ -130,7 +137,7 @@ export function LidarrSettingsPageClient() {
                 </Button>
               </div>
 
-              {options && connectionState.status === "success" && (
+              {options && (
                 <div className="lidarr-options">
                   <div className="settings-divider" />
 
@@ -211,6 +218,7 @@ export function LidarrSettingsPageClient() {
                   </label>
 
                   <div className="settings-actions">
+                    {onContinue && <Button variant="secondary" type="button" disabled={!canTest || connectionState.status === "testing"} onClick={() => void testConnection()}>{connectionState.status === "testing" ? "Testing..." : "Test Connection"}</Button>}
                     {saveState === "saved" && (
                       <span className="save-feedback">✓ Saved</span>
                     )}
@@ -219,14 +227,19 @@ export function LidarrSettingsPageClient() {
                     )}
                     <Button
                       type="button"
-                      disabled={!canSave}
-                      onClick={() => void saveSettings()}
+                      disabled={!canSave || (Boolean(onContinue) && !tested)}
+                      onClick={async () => {
+                        setNextError("");
+                        try { if (await saveSettings()) await onContinue?.(); }
+                        catch (error) { setNextError(error instanceof Error ? error.message : "Could not save setup progress."); }
+                      }}
                     >
-                      {saveState === "saving" ? "Saving..." : "Save Settings"}
+                      {saveState === "saving" ? "Saving..." : onContinue ? "Next" : "Save Settings"}
                     </Button>
                   </div>
                 </div>
               )}
+              </fieldset>
             </form>
           </SettingsSection>
         </ProviderCard>
