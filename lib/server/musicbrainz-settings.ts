@@ -8,7 +8,8 @@ import {
 } from "@/lib/content/musicbrainz-settings";
 import { db } from "@/lib/server/db";
 
-const SETTINGS_KEY = "content.musicbrainz";
+export type MusicBrainzScope = "content" | "search";
+const settingsKey = (scope: MusicBrainzScope) => `${scope}.musicbrainz`;
 const HEADER_NAME_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 type StoredMusicBrainzSettings = {
@@ -95,7 +96,7 @@ function parseStoredSettings(value: string): StoredMusicBrainzSettings | null {
   }
 }
 
-export function getStoredMusicBrainzSettings(): StoredMusicBrainzSettings | null {
+export function getStoredMusicBrainzSettings(scope: MusicBrainzScope = "content"): StoredMusicBrainzSettings | null {
   const row = db
     .prepare(
       `
@@ -104,13 +105,17 @@ export function getStoredMusicBrainzSettings(): StoredMusicBrainzSettings | null
         WHERE key = ?
       `,
     )
-    .get(SETTINGS_KEY) as SettingRow | undefined;
+    .get(settingsKey(scope)) as SettingRow | undefined;
 
   return row ? parseStoredSettings(row.value) : null;
 }
 
-export function getMusicBrainzConnection(): MusicBrainzConnection {
-  return getStoredMusicBrainzSettings() ?? getDefaultSettings();
+export function usesSearchMusicBrainz() {
+  return (db.prepare("SELECT value FROM app_settings WHERE key = 'content.use_search'").get() as SettingRow | undefined)?.value === "true";
+}
+
+export function getMusicBrainzConnection(scope: MusicBrainzScope = "content"): MusicBrainzConnection {
+  return getStoredMusicBrainzSettings(scope === "content" && usesSearchMusicBrainz() ? "search" : scope) ?? getDefaultSettings();
 }
 
 function toPublicSettings(
@@ -130,16 +135,17 @@ function toPublicSettings(
   };
 }
 
-export function getPublicMusicBrainzSettings(): PublicMusicBrainzSettings {
-  const stored = getStoredMusicBrainzSettings();
+export function getPublicMusicBrainzSettings(scope: MusicBrainzScope = "content"): PublicMusicBrainzSettings {
+  const stored = getStoredMusicBrainzSettings(scope);
 
   return toPublicSettings(stored ?? getDefaultSettings(), Boolean(stored));
 }
 
 export function resolveMusicBrainzSettings(
   payload: MusicBrainzSettingsPayload,
+  scope: MusicBrainzScope = "content",
 ): StoredMusicBrainzSettings {
-  const existing = getStoredMusicBrainzSettings();
+  const existing = getStoredMusicBrainzSettings(scope);
   const authMode = payload?.authMode;
 
   if (!isAuthMode(authMode)) {
@@ -202,8 +208,8 @@ export function resolveMusicBrainzSettings(
   return settings;
 }
 
-export function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload) {
-  const settings = resolveMusicBrainzSettings(payload);
+export function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload, scope: MusicBrainzScope = "content") {
+  const settings = resolveMusicBrainzSettings(payload, scope);
 
   db.prepare(
     `
@@ -219,14 +225,14 @@ export function saveMusicBrainzSettings(payload: MusicBrainzSettingsPayload) {
         value = excluded.value,
         updated_at = CURRENT_TIMESTAMP
     `,
-  ).run(SETTINGS_KEY, JSON.stringify(settings));
+  ).run(settingsKey(scope), JSON.stringify(settings));
 
   return toPublicSettings(settings, true);
 }
 
-export function resetMusicBrainzSettings() {
-  db.prepare("DELETE FROM app_settings WHERE key = ?").run(SETTINGS_KEY);
-  return getPublicMusicBrainzSettings();
+export function resetMusicBrainzSettings(scope: MusicBrainzScope = "content") {
+  db.prepare("DELETE FROM app_settings WHERE key = ?").run(settingsKey(scope));
+  return getPublicMusicBrainzSettings(scope);
 }
 
 export function getMusicBrainzCacheNamespace(
@@ -256,12 +262,16 @@ export function getMusicBrainzHeaders(connection: MusicBrainzConnection) {
   return headers;
 }
 
-async function testResolvedMusicBrainzConnection(
+export async function testResolvedMusicBrainzConnection(
   connection: MusicBrainzConnection,
+  scope: MusicBrainzScope = "content",
 ) {
-  const url = new URL(connection.url + "/artist/");
-  url.searchParams.set("query", "artist:MusicBrainz");
-  url.searchParams.set("limit", "1");
+  const probeId = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
+  const url = new URL(connection.url + (scope === "search" ? "/artist/" : `/artist/${probeId}`));
+  if (scope === "search") {
+    url.searchParams.set("query", "artist:Beatles");
+    url.searchParams.set("limit", "1");
+  }
   url.searchParams.set("fmt", "json");
 
   let response: Response;
@@ -291,9 +301,9 @@ async function testResolvedMusicBrainzConnection(
   }
 
   try {
-    const data = (await response.json()) as { artists?: unknown };
+    const data = (await response.json()) as { artists?: unknown; id?: string; name?: string };
 
-    if (!Array.isArray(data.artists)) {
+    if (scope === "search" ? !Array.isArray(data.artists) : data.id !== probeId || typeof data.name !== "string") {
       throw new Error("Invalid MusicBrainz response shape.");
     }
   } catch {
@@ -306,7 +316,7 @@ async function testResolvedMusicBrainzConnection(
 export function testMusicBrainzConnection(
   payload: MusicBrainzSettingsPayload,
 ) {
-  return testResolvedMusicBrainzConnection(resolveMusicBrainzSettings(payload));
+  return testResolvedMusicBrainzConnection(payload.useSearchSettings ? getMusicBrainzConnection("search") : resolveMusicBrainzSettings(payload));
 }
 
 export function testCurrentMusicBrainzConnection() {

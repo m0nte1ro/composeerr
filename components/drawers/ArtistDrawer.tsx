@@ -5,6 +5,7 @@ import { AvailabilityBadge } from "@/components/music/AvailabilityBadge";
 import { ArtistArtwork } from "@/components/music/ArtistArtwork";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MetadataEnrichment } from "@/components/drawers/MetadataEnrichment";
+import { chronologicalAlbums } from "@/lib/metadata/album-order";
 import { albumTypeLabel, artistSummary } from "@/lib/metadata/format";
 import type { ArtistSection } from "@/hooks/useMediaDrawer";
 import type {
@@ -110,7 +111,8 @@ export function ArtistDrawer({
         <div className="drawer-section-heading">
           <div>
             <h3>Discography</h3>
-            <p>Choose an album to inspect it.</p>
+            <p>Albums are ordered oldest first. Use the tabs to separate
+              albums, compilations and live releases.</p>
           </div>
         </div>
 
@@ -132,7 +134,7 @@ export function ArtistDrawer({
         {TABS.map((tab) => {
           if (!visitedSections.has(tab.id)) return null;
 
-          const albums = albumsForSection(details.discography, tab.id);
+          const albums = albumsForSection(details.discography, tab.id).sort(chronologicalAlbums);
           return (
             <div key={tab.id} hidden={artistSection !== tab.id}>
               {albums.length === 0 ? (

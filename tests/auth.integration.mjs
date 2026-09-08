@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { once } from "node:events";
 import { mkdtemp, readFile, readdir, rm, mkdir, copyFile, symlink, access } from "node:fs/promises";
 import { createServer } from "node:net";
+import { createServer as createHttpServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -21,7 +22,7 @@ async function routeFiles(directory) {
     : entry.name === "route.ts" ? [path.join(directory, entry.name)] : []))).flat();
 }
 
-test("local accounts and protected application APIs", { timeout: 120_000 }, async (t) => {
+test("local accounts and protected application APIs", { timeout: 180_000 }, async (t) => {
   const dataDir = await mkdtemp(path.join(tmpdir(), "composeerr-auth-test-"));
   const database = new Database(path.join(dataDir, "composeerr.db"));
   // Start with a pre-auth settings table to exercise the additive migration.
@@ -111,29 +112,38 @@ test("local accounts and protected application APIs", { timeout: 120_000 }, asyn
         method: "POST", body: {}, cookie: "composeerr_session=" + "a".repeat(64),
         headers: { "x-middleware-subrequest": "middleware:middleware:middleware:middleware:middleware", "x-user-role": "admin" },
       })).status, 401);
-      assert.equal((await request("/")).headers.get("location"), "/login");
-      assert.equal((await request("/settings/general")).headers.get("location"), "/login");
+      assert.equal((await request("/")).headers.get("location"), "/setup");
+      assert.equal((await request("/settings/general")).headers.get("location"), "/setup");
     });
 
-    await t.test("bootstrap admin is unique and must change its password", async () => {
-      const pages = await Promise.all([request("/login"), request("/register"), request("/login")]);
-      for (const page of pages) assert.equal(page.status, 200);
+    await t.test("fresh setup creates one administrator, resumes and protects application access", async () => {
+      assert.equal((await request("/login")).headers.get("location"), "/setup");
+      assert.equal((await request("/register")).headers.get("location"), "/setup");
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM auth_users").get().count, 0);
+      assert.match(await (await request("/setup")).text(), /Create your administrator account/);
+      assert.equal((await request("/api/auth/setup", { method: "POST", origin: "https://attacker.example", body: {} })).status, 403);
+      assert.equal((await request("/api/auth/setup", { method: "POST", body: { username: "admin", password: "short", confirmPassword: "short" } })).status, 400);
+      const body = { username: "admin", password: "Initial owner 123", confirmPassword: "Initial owner 123", role: "user" };
+      const results = await Promise.all([request("/api/auth/setup", { method: "POST", body }), request("/api/auth/setup", { method: "POST", body })]);
+      assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+      adminCookie = cookieOf(results.find((r) => r.status === 200));
+      const admin = await login("ADMIN", "Initial owner 123");
+      assert.equal(admin.user.role, "admin");
+      assert.equal(admin.user.mustChangePassword, false);
       assert.equal(database.prepare("SELECT COUNT(*) AS count FROM auth_users").get().count, 1);
       assert.equal(database.prepare("SELECT value FROM app_settings WHERE key = 'test.existing-setting'").get().value, "preserved");
-      assert.match(await pages[0].text(), /autoComplete="username"/);
-      const admin = await login("ADMIN", "admin");
-      adminCookie = admin.cookie;
-      assert.equal(admin.user.role, "admin");
-      assert.equal(admin.user.mustChangePassword, true);
-      assert.equal((await request("/", { cookie: adminCookie })).headers.get("location"), "/settings/general");
+      assert.equal((await request("/", { cookie: adminCookie })).headers.get("location"), "/setup");
       assert.equal((await request("/api/lidarr/request", { method: "POST", body: {}, cookie: adminCookie })).status, 403);
-      assert.equal((await request("/api/settings/general", { method: "PUT", body: { registrationEnabled: true }, cookie: adminCookie })).status, 403);
       assert.equal((await request("/api/auth/register", { method: "POST", body: { username: "early", password: "password123", confirmPassword: "password123" } })).status, 403);
-      const first = await request("/api/auth/password", { method: "PUT", cookie: adminCookie, body: passwordBody("admin", "Owner password 123") });
-      assert.equal(first.status, 200, await first.clone().text());
-      const oldCookie = adminCookie;
-      adminCookie = cookieOf(first);
-      assert.equal((await first.json()).user.mustChangePassword, false);
+      assert.equal((await request("/api/setup", { method: "PUT", cookie: adminCookie, body: { step: 3, complete: false } })).status, 200);
+      await stop(); await start();
+      assert.equal((await (await request("/api/setup", { cookie: adminCookie })).json()).setup.step, 3);
+      // Connection-test gating is intentionally frontend-only.
+      assert.equal((await request("/api/setup", { method: "PUT", cookie: adminCookie, body: { step: 5, complete: true } })).status, 200);
+      assert.equal((await request("/api/auth/setup", { method: "POST", body })).status, 409);
+      const changed = await request("/api/auth/password", { method: "PUT", cookie: adminCookie, body: passwordBody("Initial owner 123", "Owner password 123") });
+      assert.equal(changed.status, 200);
+      const oldCookie = adminCookie; adminCookie = cookieOf(changed);
       assert.equal((await request("/api/auth/session", { cookie: oldCookie })).status, 401);
     });
 
@@ -159,7 +169,7 @@ test("local accounts and protected application APIs", { timeout: 120_000 }, asyn
     await t.test("ordinary users can request albums but cannot read or edit instance settings", async () => {
       for (const { route, method } of protectedRoutes) {
         const adminOnly = route.startsWith("/api/settings/") || route.endsWith("/providers/test") ||
-          ["/api/lidarr/test", "/api/lidarr/options", "/api/content/musicbrainz/test", "/api/scheduled-tasks/run"].includes(route);
+          ["/api/lidarr/test", "/api/lidarr/options", "/api/content/musicbrainz/test", "/api/search/test", "/api/setup", "/api/scheduled-tasks/run"].includes(route);
         if (!adminOnly) continue;
         assert.equal((await request(route, { method, cookie: userCookie, ...(method === "GET" ? {} : { body: {} }) })).status, 403, method + " " + route);
       }
@@ -171,11 +181,123 @@ test("local accounts and protected application APIs", { timeout: 120_000 }, asyn
       assert.match(html, /Confirm new password/);
       assert.doesNotMatch(html, /Allow new registrations/);
       assert.doesNotMatch(html, /href="\/settings\/lidarr"/);
-      for (const section of ["lidarr", "library", "content", "metadata", "artwork", "scheduled-tasks"]) {
+      for (const section of ["lidarr", "search", "library", "content", "metadata", "artwork", "scheduled-tasks"]) {
         const response = await request("/settings/" + section, { cookie: userCookie });
         assert.ok(response.headers.get("location") === "/settings/general" ||
           (await response.text()).includes('url=/settings/general'));
       }
+    });
+
+    await t.test("administrators manage users and temporary passwords revoke access", async () => {
+      const values = { username: "managed", password: "Managed initial 123", confirmPassword: "Managed initial 123", role: "user" };
+      assert.equal((await request("/api/settings/users", { method: "POST", cookie: userCookie, body: values })).status, 403);
+      assert.equal((await request("/api/settings/users", { method: "POST", cookie: adminCookie, origin: "https://attacker.example", body: values })).status, 403);
+      const created = await request("/api/settings/users", { method: "POST", cookie: adminCookie, body: values });
+      assert.equal(created.status, 200);
+      const users = (await created.json()).users;
+      const managed = users.find((u) => u.username === "managed");
+      assert.ok(managed.mustChangePassword);
+      assert.ok(users.every((u) => !("password_hash" in u)));
+      assert.equal((await request("/api/settings/users", { method: "POST", cookie: adminCookie, body: { ...values, username: "MANAGED" } })).status, 409);
+      const session = await login("managed", values.password);
+      assert.equal((await request("/api/library", { cookie: session.cookie })).status, 403);
+      const reset = await request("/api/settings/users", { method: "PATCH", cookie: adminCookie, body: { id: managed.id } });
+      assert.equal(reset.status, 200);
+      assert.match(reset.headers.get("cache-control"), /no-store/);
+      const temporary = (await reset.json()).temporaryPassword;
+      assert.match(temporary, /^[A-Za-z0-9_-]{24}$/);
+      assert.equal((await request("/api/auth/session", { cookie: session.cookie })).status, 401);
+      const recovered = await login("managed", temporary);
+      const changed = await request("/api/auth/password", { method: "PUT", cookie: recovered.cookie, body: passwordBody(temporary, "Managed changed 456") });
+      assert.equal(changed.status, 200);
+      const active = cookieOf(changed);
+      assert.equal((await request("/api/settings/users", { method: "DELETE", cookie: adminCookie, body: { id: 1 } })).status, 400);
+      assert.equal((await request("/api/settings/users", { method: "PATCH", cookie: adminCookie, body: { id: 1 } })).status, 400);
+      assert.equal((await request("/api/settings/users", { method: "DELETE", cookie: adminCookie, body: { id: managed.id } })).status, 200);
+      assert.equal((await request("/api/auth/session", { cookie: active })).status, 401);
+      assert.equal((await request("/api/settings/users", { method: "PATCH", cookie: adminCookie, body: { id: managed.id } })).status, 404);
+    });
+
+    await t.test("Search and Content use independent endpoints, tests and shared secrets", async () => {
+      const calls = [];
+      const mbid = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
+      const fixture = createHttpServer((req, res) => {
+        const url = new URL(req.url, "http://fixture"); calls.push({ path: url.pathname, query: url.searchParams.has("query"), auth: req.headers.authorization, method: url.searchParams.get("method") });
+        res.setHeader("Content-Type", "application/json");
+        if (url.pathname.startsWith("/content") && url.searchParams.has("query")) { res.statusCode = 503; res.end(JSON.stringify({ error: "Search is disabled" })); return; }
+        if (url.pathname === "/lastfm") {
+          const kind = url.searchParams.get("method").split(".")[0];
+          const items = [null, "", undefined, "not-an-mbid", "00000000-0000-0000-0000-000000000000"].map((id) => ({ name: "Unlinked result", artist: "The Beatles", mbid: id, listeners: "1000" }));
+          if (url.searchParams.get(kind) !== "unlinked-only") items.push({ name: "The Beatles", artist: "The Beatles", mbid, listeners: "100" });
+          res.end(JSON.stringify({ results: { [kind + "matches"]: { [kind]: items } } })); return;
+        }
+        if (url.pathname.endsWith("/release-group/")) { res.end(JSON.stringify({ "release-groups": [] })); return; }
+        res.end(JSON.stringify(url.searchParams.has("query") ? { artists: [{ id: null, name: "Unlinked artist", score: 100 }, { id: "invalid", name: "Invalid artist", score: 100 }, { id: mbid, name: "The Beatles", score: 100 }] } : { id: mbid, name: "The Beatles", title: "The Beatles" }));
+      });
+      fixture.listen(0, "127.0.0.1"); await once(fixture, "listening");
+      const endpoint = "http://127.0.0.1:" + fixture.address().port;
+      const content = { url: endpoint + "/content/ws/2", authMode: "basic", username: "mirror", password: "fixture-password" };
+      const search = { engine: "musicbrainz", musicbrainz: { url: endpoint + "/search/ws/2", authMode: "none" } };
+      try {
+        assert.equal((await request("/api/content/musicbrainz/test", { method: "POST", cookie: adminCookie, body: content })).status, 200);
+        assert.equal(calls.at(-1).path, "/content/ws/2/artist/" + mbid);
+        assert.equal(calls.at(-1).query, false);
+        assert.equal(calls.at(-1).auth, "Basic " + Buffer.from("mirror:fixture-password").toString("base64"));
+        assert.equal((await request("/api/search/test", { method: "POST", cookie: adminCookie, body: { engine: "musicbrainz", musicbrainz: content } })).status, 400);
+        assert.equal((await request("/api/search/test", { method: "POST", cookie: adminCookie, body: search })).status, 200);
+        assert.ok(calls.at(-1).query);
+        const saved = await request("/api/settings/content/musicbrainz", { method: "PUT", cookie: adminCookie, body: content });
+        assert.equal(saved.status, 200);
+        assert.doesNotMatch(await saved.text(), /fixture-password/);
+        assert.equal((await request("/api/settings/search", { method: "PUT", cookie: adminCookie, body: search })).status, 200);
+        const canonicalSearch = await request("/api/metadata/search?type=artist&q=Beatles", { cookie: adminCookie });
+        assert.equal(canonicalSearch.status, 200);
+        assert.deepEqual((await canonicalSearch.json()).results.map((result) => result.musicBrainzId), [mbid]);
+        assert.equal((await request("/api/metadata/details?type=artist&id=" + mbid, { cookie: adminCookie })).status, 200);
+        const lastfm = { engine: "lastfm", lastfm: { key: "lastfm", enabled: true, url: endpoint + "/lastfm", authMode: "native", nativeSecret: "fixture-lastfm-key" } };
+        assert.equal((await request("/api/search/test", { method: "POST", cookie: adminCookie, body: lastfm })).status, 200);
+        assert.equal(calls.at(-1).method, "artist.search");
+        const lastfmSaved = await request("/api/settings/search", { method: "PUT", cookie: adminCookie, body: lastfm });
+        assert.equal(lastfmSaved.status, 200);
+        assert.doesNotMatch(await lastfmSaved.text(), /fixture-lastfm-key/);
+        const discoveryResponse = await request("/api/metadata/search?type=artist&q=Beatles", { cookie: adminCookie });
+        assert.equal(discoveryResponse.status, 200);
+        const discovery = await discoveryResponse.json();
+        assert.equal(discovery.provider, "lastfm");
+        assert.deepEqual(discovery.results.map((result) => result.musicBrainzId), [mbid]);
+        for (const type of ["artist", "album", "song"]) {
+          const beforeSearch = calls.length;
+          const response = await request(`/api/metadata/search?type=${type}&q=Beatles`, { cookie: adminCookie });
+          assert.equal(response.status, 200);
+          const results = (await response.json()).results;
+          assert.deepEqual(results.map((result) => [result.kind, result.musicBrainzId]), [[type, mbid]]);
+          assert.ok(calls.slice(beforeSearch).every((call) => call.path === "/lastfm"), "Search must not verify result IDs through MusicBrainz lookups");
+          const beforeEmpty = calls.length;
+          const empty = await request(`/api/metadata/search?type=${type}&q=unlinked-only`, { cookie: adminCookie });
+          assert.equal(empty.status, 200);
+          assert.deepEqual((await empty.json()).results, []);
+          assert.ok(calls.slice(beforeEmpty).every((call) => call.path === "/lastfm"), "Missing IDs must not trigger MusicBrainz lookups");
+        }
+        // Older clients may still submit an unlinked result directly to the resolver.
+        assert.equal((await request("/api/metadata/resolve", { method: "POST", cookie: adminCookie, body: { ...discovery.results[0], musicBrainzId: null } })).status, 404);
+        assert.equal((await request("/api/settings/metadata", { method: "DELETE", cookie: adminCookie, body: { key: "lastfm" } })).status, 400);
+        // Secrets survive partial updates, and enrichment being disabled does not disable search.
+        delete lastfm.lastfm.nativeSecret;
+        assert.equal((await request("/api/settings/search", { method: "PUT", cookie: adminCookie, body: lastfm })).status, 200);
+        const metadata = (await (await request("/api/settings/metadata", { cookie: adminCookie })).json()).settings;
+        assert.equal(metadata.providers.find((p) => p.key === "lastfm").enabled, false);
+        assert.equal((await request("/api/settings/search", { method: "PUT", cookie: adminCookie, body: search })).status, 200);
+        assert.equal((await request("/api/settings/content/musicbrainz", { method: "PUT", cookie: adminCookie, body: { ...content, password: undefined, useSearchSettings: true } })).status, 200);
+        assert.equal((await request("/api/content/musicbrainz/test", { method: "POST", cookie: adminCookie, body: { ...content, useSearchSettings: true } })).status, 200);
+        assert.equal(calls.at(-1).path, "/search/ws/2/artist/" + mbid);
+        assert.equal(calls.at(-1).query, false);
+        assert.equal((await request("/api/settings/content/musicbrainz", { method: "PUT", cookie: adminCookie, body: { ...content, password: undefined, useSearchSettings: false } })).status, 200);
+        assert.equal((await request("/api/content/musicbrainz/test", { method: "POST", cookie: adminCookie, body: { ...content, password: undefined } })).status, 200);
+        assert.equal(calls.at(-1).path, "/content/ws/2/artist/" + mbid);
+        const settingsBefore = database.prepare("SELECT * FROM app_settings ORDER BY key").all();
+        await stop(); await start();
+        assert.deepEqual(database.prepare("SELECT * FROM app_settings ORDER BY key").all(), settingsBefore);
+      } finally { await new Promise((resolve) => fixture.close(resolve)); }
     });
 
     await t.test("password validation, case-insensitive uniqueness and CSRF checks", async () => {
@@ -294,6 +416,21 @@ test("local accounts and protected application APIs", { timeout: 120_000 }, asyn
       adminCookie = cookieOf(response);
       assert.equal((await response.json()).user.mustChangePassword, false);
       assert.match(await (await request("/login")).text(), /Forgot password/);
+    });
+
+    await t.test("legacy upgrade preserves accounts, sessions and provider configuration", async () => {
+      await stop();
+      const users = database.prepare("SELECT * FROM auth_users ORDER BY id").all();
+      const providers = database.prepare("SELECT * FROM app_settings WHERE key LIKE 'provider.%' OR key = 'content.musicbrainz' ORDER BY key").all();
+      database.prepare("DELETE FROM app_settings WHERE key IN ('setup.complete', 'search.engine', 'search.musicbrainz')").run();
+      database.pragma("user_version = 4");
+      await start();
+      assert.equal(database.pragma("user_version", { simple: true }), 5);
+      assert.deepEqual(database.prepare("SELECT * FROM auth_users ORDER BY id").all(), users);
+      assert.deepEqual(database.prepare("SELECT * FROM app_settings WHERE key LIKE 'provider.%' OR key = 'content.musicbrainz' ORDER BY key").all(), providers);
+      assert.equal((await (await request("/api/setup", { cookie: adminCookie })).json()).setup.complete, true);
+      assert.equal(database.prepare("SELECT value FROM app_settings WHERE key = 'search.musicbrainz'").get().value, database.prepare("SELECT value FROM app_settings WHERE key = 'content.musicbrainz'").get().value);
+      assert.equal((await request("/api/auth/session", { cookie: adminCookie })).status, 200);
     });
 
     await t.test("HTTPS proxy origin sets secure cookies and rejects other origins", async () => {

@@ -1,5 +1,7 @@
 import type {
   DiscoverySearchResult,
+  MetadataSearchType,
+  MetadataSearchResult,
   MetadataAlbumDetails,
   MetadataAlbumResult,
   MetadataArtistDetails,
@@ -26,6 +28,8 @@ export interface MusicMetadataProvider {
     query: string,
     limit?: number,
   ): Promise<MetadataSongResult[]>;
+
+  resolveIdentity(kind: MetadataSearchType, id: string): Promise<MetadataSearchResult | null>;
 
   findCanonicalMatches(
     discovery: DiscoverySearchResult,

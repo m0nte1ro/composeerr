@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useSetupFormState } from "@/components/setup/SetupFormState";
+import { useEffect, useRef, useState } from "react";
 
 import { ConnectionTestStatus } from "@/components/settings/ConnectionTestStatus";
 import { ProviderCard } from "@/components/settings/ProviderCard";
@@ -33,6 +34,9 @@ export type ApiProviderValues = {
 };
 
 type ApiProviderCardProps = {
+    onContinue?: () => Promise<void>;
+    onBusyChange?: (busy: boolean) => void;
+    requireTest?: boolean;
     providerId: string;
     name: string;
     description: string;
@@ -63,6 +67,9 @@ type ApiProviderCardProps = {
 };
 
 export function ApiProviderCard({
+    onContinue,
+    onBusyChange,
+    requireTest = false,
     providerId,
     name,
     description,
@@ -88,6 +95,8 @@ export function ApiProviderCard({
     onReset,
     onCancelCreate,
 }: ApiProviderCardProps) {
+    const revision = useRef(0);
+    const [dirty, setDirty] = useState(createMode);
     const [enabled, setEnabled] = useState(initialEnabled);
     const [url, setUrl] = useState(initialUrl);
     const [customizationMode, setCustomizationMode] =
@@ -117,7 +126,16 @@ export function ApiProviderCard({
         status: "idle",
     });
 
+    useSetupFormState(providerId, dirty, saving || removing || connectionState.status === "testing");
+
+    useEffect(() => {
+        onBusyChange?.(saving || removing || connectionState.status === "testing");
+        return () => onBusyChange?.(false);
+    }, [onBusyChange, saving, removing, connectionState.status]);
+
     function markAsEdited() {
+        setDirty(true);
+        revision.current += 1;
         setConnectionState({ status: "idle" });
         setSaveMessage("");
     }
@@ -158,16 +176,19 @@ export function ApiProviderCard({
     }
 
     async function testConnection() {
+        const testedRevision = revision.current;
         setConnectionState({ status: "testing" });
 
         try {
             await onTest(values());
+            if (testedRevision !== revision.current) return;
             setConnectionState({
                 status: "success",
                 title: `${name} is reachable.`,
                 message: "The configured API endpoint responded successfully.",
             });
         } catch (error) {
+            if (testedRevision !== revision.current) return;
             setConnectionState({
                 status: "error",
                 message:
@@ -185,6 +206,8 @@ export function ApiProviderCard({
             clearSecretEditors();
             setCustomizing(false);
             setSaveMessage("Saved");
+            setDirty(false);
+            if (onContinue) await onContinue();
         } catch (error) {
             setSaveMessage(error instanceof Error ? error.message : "Save failed.");
         } finally {
@@ -208,6 +231,7 @@ export function ApiProviderCard({
     }
 
     async function resetCustomization() {
+        markAsEdited();
         setSaving(true);
         setSaveMessage("");
 
@@ -233,6 +257,7 @@ export function ApiProviderCard({
             clearSecretEditors();
             setCustomizing(false);
             setSaveMessage("Saved");
+            setDirty(false);
         } catch (error) {
             setSaveMessage(error instanceof Error ? error.message : "Reset failed.");
         } finally {
@@ -277,6 +302,7 @@ export function ApiProviderCard({
                         <Input
                             type="checkbox"
                             checked={enabled}
+                            disabled={saving || removing}
                             onChange={(event) => {
                                 setEnabled(event.target.checked);
                                 markAsEdited();
@@ -287,8 +313,8 @@ export function ApiProviderCard({
                 ) : null}
             </div>
 
-            <div className="provider-card-body">
-                {nativeCredential && (createMode || customizing) ? (
+            <fieldset className="provider-card-body provider-fields" disabled={saving}>
+                {nativeCredential && (createMode || customizing || !hasSavedNativeSecret) ? (
                     <div className="settings-auth-fields">
                         <div className="settings-field">
                             <label htmlFor={`${providerId}-native-secret`}>
@@ -308,6 +334,7 @@ export function ApiProviderCard({
                                     setShowNativeSecret(false);
                                 }}
                                 onCancelEditing={() => {
+                                    markAsEdited();
                                     setEditingNativeSecret(false);
                                     setNativeSecret("");
                                     setShowNativeSecret(false);
@@ -405,6 +432,7 @@ export function ApiProviderCard({
                                             setShowPassword(false);
                                         }}
                                         onCancelEditing={() => {
+                                    markAsEdited();
                                             setEditingPassword(false);
                                             setPassword("");
                                             setShowPassword(false);
@@ -451,6 +479,7 @@ export function ApiProviderCard({
                                             setShowHeaderSecret(false);
                                         }}
                                         onCancelEditing={() => {
+                                    markAsEdited();
                                             setEditingHeaderSecret(false);
                                             setHeaderSecret("");
                                             setShowHeaderSecret(false);
@@ -516,12 +545,12 @@ export function ApiProviderCard({
                         >
                             {connectionState.status === "testing" ? "Testing..." : "Test Connection"}
                         </Button>
-                        <Button disabled={!fieldsAreValid || saving} onClick={() => void save()}>
-                            {saving ? "Saving..." : createMode ? "Add Provider" : "Save Settings"}
+                        <Button disabled={!fieldsAreValid || saving || (requireTest && connectionState.status !== "success")} onClick={() => void save()}>
+                            {saving ? "Saving..." : onContinue ? "Next" : createMode ? "Add Provider" : "Save Settings"}
                         </Button>
                     </div>
                 </div>
-            </div>
+            </fieldset>
         </ProviderCard>
     );
 }

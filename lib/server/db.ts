@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATABASE_SCHEMA_VERSION = 4;
+const DATABASE_SCHEMA_VERSION = 5;
 
 function isSqliteBusy(error: unknown) {
   return (
@@ -155,7 +155,23 @@ export function getDatabase(): ComposeerrDatabase {
   }
 
   if (globalForDatabase.composeerrDatabaseSchemaVersion !== DATABASE_SCHEMA_VERSION) {
-    applyDatabaseSchema(globalForDatabase.composeerrDatabase);
+    const database = globalForDatabase.composeerrDatabase;
+    database.transaction(() => {
+      const version = database.pragma("user_version", { simple: true }) as number;
+      if (version > DATABASE_SCHEMA_VERSION) throw new Error("Database belongs to a newer Composeerr version.");
+      applyDatabaseSchema(database);
+      if (version < 5) {
+        if (database.prepare("SELECT 1 FROM auth_users LIMIT 1").get()) {
+          database.prepare("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('setup.complete', 'true')").run();
+        }
+        database.prepare("INSERT OR IGNORE INTO app_settings (key, value) SELECT 'search.musicbrainz', value FROM app_settings WHERE key = 'content.musicbrainz'").run();
+        const lastfm = database.prepare("SELECT value FROM app_settings WHERE key = 'provider.lastfm'").get() as { value: string } | undefined;
+        let engine = "musicbrainz";
+        try { if (lastfm && JSON.parse(lastfm.value).enabled) engine = "lastfm"; } catch { /* Preserve malformed legacy data for recovery. */ }
+        database.prepare("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('search.engine', ?)").run(engine);
+        database.pragma("user_version = 5");
+      }
+    }).immediate();
     globalForDatabase.composeerrDatabaseSchemaVersion = DATABASE_SCHEMA_VERSION;
   }
 

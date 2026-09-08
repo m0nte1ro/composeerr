@@ -1,3 +1,4 @@
+import { UserManagement } from "@/components/settings/UserManagement";
 import { SettingsPageHeader } from "@/components/settings/SettingsPageHeader";
 import { PasswordChangeForm } from "@/components/settings/PasswordChangeForm";
 import { RegistrationSettings } from "@/components/settings/RegistrationSettings";
@@ -14,6 +15,7 @@ export default async function GeneralSettingsPage() {
       <div className="general-settings-sections">
         <PasswordChangeForm user={user} />
         {user.role === "admin" && <RegistrationSettings initialEnabled={registrationsEnabled()} locked={user.mustChangePassword} />}
+        {user.role === "admin" && !user.mustChangePassword && <UserManagement currentUserId={user.id} />}
       </div>
     </>
   );

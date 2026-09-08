@@ -1,7 +1,6 @@
 import type { AuthUser } from "@/lib/auth/types";
 import { db } from "../db";
 import { AuthError } from "./errors";
-import { hashPassword } from "./passwords";
 
 export type UserRecord = {
   id: number;
@@ -25,26 +24,12 @@ export function findUser(username: string) {
     .get(username) as UserRecord | undefined;
 }
 
-let bootstrap: Promise<void> | undefined;
-
-export async function ensureAdmin() {
-  if (db.prepare("SELECT 1 FROM auth_users LIMIT 1").get()) return;
-  bootstrap ??= (async () => {
-    const hash = await hashPassword("admin");
-    db.transaction(() => {
-      if (db.prepare("SELECT 1 FROM auth_users LIMIT 1").get()) return;
-      db.prepare(`INSERT INTO auth_users (username, password_hash, role, must_change_password)
-        VALUES ('admin', ?, 'admin', 1)`).run(hash);
-    }).immediate();
-  })().finally(() => { bootstrap = undefined; });
-  await bootstrap;
-}
-
 export function registrationsEnabled() {
   const setting = db.prepare("SELECT value FROM app_settings WHERE key = 'auth.registration_enabled'")
     .get() as { value: string } | undefined;
   // A fresh instance is private until its owner explicitly opens registration.
-  return setting?.value === "true";
+  const complete = db.prepare("SELECT value FROM app_settings WHERE key = 'setup.complete'").get() as { value: string } | undefined;
+  return complete?.value === "true" && setting?.value === "true";
 }
 
 export function setRegistrationsEnabled(enabled: boolean) {

@@ -40,7 +40,7 @@ export function DiscoveryArtwork({ result, className }: DiscoveryArtworkProps) {
         );
     }
 
-    if (result.canonical && result.musicBrainzId) {
+    if (result.musicBrainzId && (result.kind === "artist" || result.canonical)) {
         return result.kind === "artist" ? (
             <ArtistArtwork
                 artist={{
