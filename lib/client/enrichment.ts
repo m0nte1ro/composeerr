@@ -45,3 +45,9 @@ export async function loadEnrichment(entity: EnrichmentEntity) {
 
   return response.ok && data.ok ? data.enrichment ?? null : null;
 }
+export async function loadArtistArtworkByName(name: string): Promise<ArtworkResolution> {
+  const params = new URLSearchParams({ type: "artist", name });
+  const response = await apiFetch(`/api/artwork/resolve?${params}`);
+  const data = await response.json();
+  return response.ok && data.ok && data.artwork ? data.artwork : { url: null, provider: null };
+}

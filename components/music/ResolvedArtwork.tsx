@@ -8,6 +8,7 @@ import { useProviderResource } from "@/components/drawers/DrawerProviderData";
 import { ArtworkPlaceholder } from "@/components/music/ArtworkPlaceholder";
 import { loadArtwork } from "@/lib/client/enrichment";
 import type {
+    ArtworkResolution,
     MetadataAlbumResult,
     MetadataArtistResult,
 } from "@/lib/metadata/types";
@@ -17,6 +18,8 @@ type ResolvedArtworkProps = {
     label: string;
     shape?: "square" | "circle";
     className: string;
+    resourceKey?: string;
+    loader?: () => Promise<ArtworkResolution>;
 };
 
 export function ResolvedArtwork({
@@ -24,10 +27,12 @@ export function ResolvedArtwork({
     label,
     shape = "square",
     className,
+    resourceKey,
+    loader,
 }: ResolvedArtworkProps) {
     const resource = useProviderResource(
-        `artwork:${entity.kind}:${entity.id}`,
-        () => loadArtwork(entity),
+        resourceKey ?? `artwork:${entity.kind}:${entity.id}`,
+        loader ?? (() => loadArtwork(entity)),
     );
     const [imageState, setImageState] = useState<{
         url: string | null;

@@ -1,3 +1,4 @@
+import { SongArtistArtwork } from "./SongArtistArtwork";
 import type { DiscoverySongResult } from "@/lib/metadata/types";
 
 type SongResultRowProps = {
@@ -8,7 +9,7 @@ type SongResultRowProps = {
 export function SongResultRow({ song, onOpen }: SongResultRowProps) {
   return (
     <button className="song-result" type="button" onClick={() => onOpen(song)}>
-      <div className="song-result-icon">♪</div>
+      <SongArtistArtwork name={song.artist} />
 
       <div className="song-result-copy">
         <strong>{song.title}</strong>

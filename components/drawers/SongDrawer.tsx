@@ -1,6 +1,7 @@
 import { AlbumArtwork } from "@/components/music/AlbumArtwork";
 import { AvailabilityBadge } from "@/components/music/AvailabilityBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { songAlbumChoices } from "@/lib/metadata/album-order";
 import { albumTypeLabel, formatDuration } from "@/lib/metadata/format";
 import type {
   MetadataAlbumResult,
@@ -20,6 +21,8 @@ export function SongDrawer({
   isAlbumRequested,
   onOpenAlbum,
 }: SongDrawerProps) {
+  const choices = songAlbumChoices(details.appearances, details.song);
+
   return (
     <div className="drawer-content">
       <div className="media-kicker">Song</div>
@@ -43,7 +46,8 @@ export function SongDrawer({
         <div className="drawer-section-heading">
           <div>
             <h3>Appears on</h3>
-            <p>Choose which album you actually want.</p>
+            <p>Artist studio albums first, then other appearances by year.
+              Earliest labels refer to the albums listed here, not popularity.</p>
           </div>
         </div>
 
@@ -55,7 +59,7 @@ export function SongDrawer({
           />
         ) : (
           <div className="appears-on-list">
-            {details.appearances.map((album) => (
+            {choices.map(({ album, earliestStudio }) => (
               <button
                 className="appears-on-item"
                 type="button"
@@ -66,8 +70,11 @@ export function SongDrawer({
 
                 <div className="appears-on-copy">
                   <strong>{album.title}</strong>
+                  {earliestStudio ? <span className="album-guidance">Earliest studio album listed</span> : null}
 
                   <span>
+                    {album.artist}
+                    {" · "}
                     {album.year ?? "Unknown"}
                     {" · "}
                     {albumTypeLabel(album)}

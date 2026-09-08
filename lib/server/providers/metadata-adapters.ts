@@ -334,7 +334,7 @@ function findAudioDbRecord(
     }
 
     if (
-      normalizeMatch(value.strMusicBrainzID) === normalizeMatch(entity.id)
+      entity.id && normalizeMatch(value.strMusicBrainzID) === normalizeMatch(entity.id)
     ) {
       return true;
     }
@@ -505,4 +505,16 @@ export async function testMetadataProviderConnection(
   connection: MetadataProviderConnection,
 ) {
   await adapters[connection.key].test(connection);
+}
+
+/** Artist identity for artwork only; never reinterpret a song MBID as an artist ID. */
+export async function lookupLastFmArtist(connection: MetadataProviderConnection, name: string) {
+  const url = new URL(connection.url);
+  url.searchParams.set("method", "artist.getInfo");
+  url.searchParams.set("artist", name);
+  url.searchParams.set("format", "json");
+  if (connection.authMode === "native") url.searchParams.set("api_key", connection.nativeSecret);
+  const data = await requestJson(connection, url);
+  if (!isObject(data) || !isObject(data.artist)) return null;
+  return { id: text(data.artist.mbid), image: lastFmArtwork(data.artist.image) };
 }
