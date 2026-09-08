@@ -452,7 +452,6 @@
 .search-engine-option.selected { border-color: #a78bfa; background: #a78bfa12; }
 .search-engine-option span, .search-engine-option small { display: block; }
 .search-engine-option small { margin-top: 5px; color: #a1a1aa; }
-#library-providers { margin-top: 40px; }
 .users-table-wrapper { overflow-x: auto; }
 .users-table { width: 100%; border-collapse: collapse; text-align: left; }
 .users-table th, .users-table td { padding: 14px 10px; border-bottom: 1px solid #343440; }

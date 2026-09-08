@@ -122,9 +122,8 @@ export function SearchSettingsPageClient({
             />
           )}
           <p className="settings-note">
-            Results without an MBID are matched through the MusicBrainz Search
-            endpoint (public by default). The Content mirror only handles ID
-            lookups and browsing.
+            Only results with a MusicBrainz ID are shown. Results without an ID
+            are excluded from artist, album and song searches.
           </p>
         </div>
       )}

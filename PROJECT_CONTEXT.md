@@ -9,8 +9,8 @@
 - Reset is explicit: `scripts/reset-instance.mjs --confirm` creates a backup before
   clearing instance data. Add `--setup-only` to reopen provider setup while retaining
   accounts, sessions and API settings. Stop the app first. Never run this script during updates.
-- Settings tabs: General, Lidarr, Search, Content, Metadata, Artwork, Scheduled Tasks.
-  Existing optional Library providers remain accessible within the Lidarr page.
+- Settings tabs: General, Lidarr, Library, Search, Content, Metadata, Artwork, Scheduled Tasks.
+  Library has its own page for availability providers.
 - General includes admin user management. Temporary resets revoke sessions and
   require password changes. Regular users only see their own password form.
 - Search selects Last.fm or MusicBrainz explicitly, independently of enrichment.
@@ -18,8 +18,8 @@
 - `search.musicbrainz` and `content.musicbrainz` store independent connections.
   Content can follow MusicBrainz Search through `content.use_search` without copying secrets.
 - Content tests retrieve an artist by MBID and work with lookup-only HTTP mirrors.
-  Search tests exercise indexed search. Last.fm identities without MBIDs are resolved
-  through MusicBrainz Search, never through the Content mirror's search service.
+  Search tests exercise indexed search. All search results require a valid MBID;
+  missing, empty and malformed IDs are filtered server-side before presentation.
 - Setup reuses the Settings provider cards. Search/Lidarr/Content Next requires a
   successful current-form test in the frontend only. Editing invalidates the result,
   including edits during an in-flight test. Optional provider edits must be saved.

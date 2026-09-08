@@ -88,16 +88,17 @@ Existing accounts and provider configuration survive upgrades. Versioned SQLite
 migrations mark an existing installation as configured without forcing setup again.
 Never delete the data volume or run a reset command as part of an ordinary update.
 
-Settings contains General, Lidarr, Search, Content, Metadata, Artwork and Scheduled
-Tasks. Existing optional Library providers are retained under Lidarr.
+Settings contains General, Lidarr, Library, Search, Content, Metadata, Artwork and
+Scheduled Tasks. Library has its own page for availability providers.
 
 Search selects Last.fm or MusicBrainz explicitly. Last.fm credentials are shared
 with Metadata, while enrichment can be enabled separately. MusicBrainz Search
 and Content have independent endpoints and authentication. Content can optionally
 follow the saved MusicBrainz Search configuration. A lookup-only local mirror works
 for Content: its connection test retrieves an artist by MBID, whereas the Search
-test performs an indexed search. Last.fm results without an MBID are matched using
-the MusicBrainz Search endpoint (public by default), never the Content mirror.
+test performs an indexed search. Artist, album and song searches only display
+results with a valid MusicBrainz ID. Results with missing, empty or malformed IDs
+are excluded server-side without attempting to resolve them.
 
 Admins can create users and administrators, delete other accounts, and reset their
 passwords in General. Reset displays a new temporary password once, revokes the

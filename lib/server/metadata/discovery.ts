@@ -44,11 +44,27 @@ async function searchMusicBrainz(type: MetadataSearchType, query: string) {
   };
 }
 
+const MUSICBRAINZ_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function searchDiscovery(type: MetadataSearchType, query: string) {
+  let discovery: { provider: string; results: DiscoverySearchResult[] };
   if (getSearchEngine() === "lastfm") {
     const connection = getStoredMetadataProvider("lastfm");
     if (!connection) throw new Error("Search provider is not configured.");
-    return { provider: "lastfm", results: await searchMetadataDiscoveryProvider(connection, type, query) };
+    discovery = {
+      provider: "lastfm",
+      results: await searchMetadataDiscoveryProvider(connection, type, query),
+    };
+  } else {
+    discovery = await searchMusicBrainz(type, query);
   }
-  return searchMusicBrainz(type, query);
+
+  // Every search engine must supply an ID before a result can reach the UI.
+  return {
+    ...discovery,
+    results: discovery.results.filter((result) =>
+      MUSICBRAINZ_ID_PATTERN.test(result.musicBrainzId ?? ""),
+    ),
+  };
 }
