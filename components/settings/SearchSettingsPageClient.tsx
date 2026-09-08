@@ -122,8 +122,9 @@ export function SearchSettingsPageClient({
             />
           )}
           <p className="settings-note">
-            Only results with a MusicBrainz ID are shown. Results without an ID
-            are excluded from artist, album and song searches.
+            Only results verified against your MusicBrainz Content connection are
+            shown. Songs must resolve to recordings, albums to release groups,
+            and artists to artists.
           </p>
         </div>
       )}

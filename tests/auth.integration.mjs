@@ -232,7 +232,7 @@ test("local accounts and protected application APIs", { timeout: 180_000 }, asyn
           res.end(JSON.stringify({ results: { [kind + "matches"]: { [kind]: items } } })); return;
         }
         if (url.pathname.endsWith("/release-group/")) { res.end(JSON.stringify({ "release-groups": [] })); return; }
-        res.end(JSON.stringify(url.searchParams.has("query") ? { artists: [{ id: null, name: "Unlinked artist", score: 100 }, { id: "invalid", name: "Invalid artist", score: 100 }, { id: mbid, name: "The Beatles", score: 100 }] } : { id: mbid, name: "The Beatles" }));
+        res.end(JSON.stringify(url.searchParams.has("query") ? { artists: [{ id: null, name: "Unlinked artist", score: 100 }, { id: "invalid", name: "Invalid artist", score: 100 }, { id: mbid, name: "The Beatles", score: 100 }] } : { id: mbid, name: "The Beatles", title: "The Beatles" }));
       });
       fixture.listen(0, "127.0.0.1"); await once(fixture, "listening");
       const endpoint = "http://127.0.0.1:" + fixture.address().port;
@@ -266,19 +266,20 @@ test("local accounts and protected application APIs", { timeout: 180_000 }, asyn
         assert.equal(discovery.provider, "lastfm");
         assert.deepEqual(discovery.results.map((result) => result.musicBrainzId), [mbid]);
         for (const type of ["artist", "album", "song"]) {
-          const before = calls.length;
+          const beforeSearch = calls.length;
           const response = await request(`/api/metadata/search?type=${type}&q=Beatles`, { cookie: adminCookie });
           assert.equal(response.status, 200);
           const results = (await response.json()).results;
           assert.deepEqual(results.map((result) => [result.kind, result.musicBrainzId]), [[type, mbid]]);
-          assert.ok(calls.slice(before).every((call) => call.path === "/lastfm"), "Filtering must not resolve missing IDs through extra MusicBrainz requests");
+          assert.ok(calls.slice(beforeSearch).every((call) => call.path === "/lastfm"), "Search must not verify result IDs through MusicBrainz lookups");
+          const beforeEmpty = calls.length;
           const empty = await request(`/api/metadata/search?type=${type}&q=unlinked-only`, { cookie: adminCookie });
           assert.equal(empty.status, 200);
           assert.deepEqual((await empty.json()).results, []);
+          assert.ok(calls.slice(beforeEmpty).every((call) => call.path === "/lastfm"), "Missing IDs must not trigger MusicBrainz lookups");
         }
         // Older clients may still submit an unlinked result directly to the resolver.
-        assert.equal((await request("/api/metadata/resolve", { method: "POST", cookie: adminCookie, body: { ...discovery.results[0], musicBrainzId: null } })).status, 200);
-        assert.equal(calls.at(-1).path, "/search/ws/2/artist/");
+        assert.equal((await request("/api/metadata/resolve", { method: "POST", cookie: adminCookie, body: { ...discovery.results[0], musicBrainzId: null } })).status, 404);
         assert.equal((await request("/api/settings/metadata", { method: "DELETE", cookie: adminCookie, body: { key: "lastfm" } })).status, 400);
         // Secrets survive partial updates, and enrichment being disabled does not disable search.
         delete lastfm.lastfm.nativeSecret;

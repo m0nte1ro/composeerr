@@ -18,8 +18,12 @@
 - `search.musicbrainz` and `content.musicbrainz` store independent connections.
   Content can follow MusicBrainz Search through `content.use_search` without copying secrets.
 - Content tests retrieve an artist by MBID and work with lookup-only HTTP mirrors.
-  Search tests exercise indexed search. All search results require a valid MBID;
-  missing, empty and malformed IDs are filtered server-side before presentation.
+  Search tests exercise indexed search. Both engines verify result MBIDs against
+  Content using lookup/browse only: songs recording or track→recording, albums
+  release group or release→group, artists artist only. Missing/invalid/unresolvable
+  IDs are excluded, without name-based recovery. Canonical IDs override spelling
+  differences. Positive identity cache TTL is 24h, confirmed misses 5min, scoped
+  by Content connection and entity kind; upstream failures are not cached as misses.
 - Setup reuses the Settings provider cards. Search/Lidarr/Content Next requires a
   successful current-form test in the frontend only. Editing invalidates the result,
   including edits during an in-flight test. Optional provider edits must be saved.

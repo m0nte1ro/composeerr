@@ -97,8 +97,12 @@ and Content have independent endpoints and authentication. Content can optionall
 follow the saved MusicBrainz Search configuration. A lookup-only local mirror works
 for Content: its connection test retrieves an artist by MBID, whereas the Search
 test performs an indexed search. Artist, album and song searches only display
-results with a valid MusicBrainz ID. Results with missing, empty or malformed IDs
-are excluded server-side without attempting to resolve them.
+results with an ID verified against the configured Content connection. Song IDs
+resolve to recordings (including track-to-recording conversion); album IDs resolve
+to release groups (including release-to-group conversion); artist IDs must identify
+artists. Verification uses lookup/browse endpoints, not indexed Content search.
+Missing or invalid IDs are excluded without name-based recovery. Verified identities
+are cached for 24 hours, so uncached searches can take longer on rate-limited servers.
 
 Admins can create users and administrators, delete other accounts, and reset their
 passwords in General. Reset displays a new temporary password once, revokes the
