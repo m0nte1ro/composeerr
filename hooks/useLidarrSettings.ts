@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getLidarrOptions,
@@ -37,7 +37,9 @@ function getFirstValidOption(current: string, options: Array<{ id: number }>) {
   return options[0]?.id.toString() ?? "";
 }
 
-export function useLidarrSettings() {
+export function useLidarrSettings(setup = false) {
+  const revision = useRef(0);
+  const [testedRevision, setTestedRevision] = useState(-1);
   const [loading, setLoading] = useState(true);
 
   const [url, setUrl] = useState("");
@@ -90,6 +92,7 @@ export function useLidarrSettings() {
 
         setSearchAfterAdd(settings.searchAfterAdd ?? true);
 
+        if (setup) return;
         try {
           const lidarrOptions = await getLidarrOptions();
           setOptions(lidarrOptions);
@@ -97,24 +100,32 @@ export function useLidarrSettings() {
         } catch {
           setConnectionState({ status: "idle" });
         }
+      } catch {
+        setConnectionState({ status: "error", message: "Could not load Lidarr settings." });
       } finally {
         setLoading(false);
       }
     }
 
     void load();
-  }, []);
+  }, [setup]);
 
   const connectionChanged = useCallback(() => {
+    revision.current += 1;
+    setTestedRevision(-1);
     setConnectionState({ status: "idle" });
     setSaveState("idle");
   }, []);
 
   const markAsEdited = useCallback(() => {
+    revision.current += 1;
+    setTestedRevision(-1);
     setSaveState("idle");
   }, []);
 
   const testConnection = useCallback(async () => {
+    const currentRevision = revision.current;
+    setTestedRevision(-1);
     setConnectionState({ status: "testing" });
     setSaveState("idle");
 
@@ -124,6 +135,8 @@ export function useLidarrSettings() {
         apiKey: apiKey.trim() || undefined,
       });
 
+      if (currentRevision !== revision.current) { setConnectionState({ status: "idle" }); return; }
+      setTestedRevision(currentRevision);
       setOptions(result.options);
       setDefaultSelections(result.options);
 
@@ -133,6 +146,7 @@ export function useLidarrSettings() {
         instanceName: result.lidarr?.instanceName,
       });
     } catch (error) {
+      if (currentRevision !== revision.current) { setConnectionState({ status: "idle" }); return; }
       setConnectionState({
         status: "error",
         message:
@@ -165,6 +179,7 @@ export function useLidarrSettings() {
       window.setTimeout(() => {
         setSaveState("idle");
       }, 1800);
+      return true;
     } catch (error) {
       setSaveState("error");
 
@@ -206,6 +221,7 @@ export function useLidarrSettings() {
 
   return {
     loading,
+    tested: testedRevision >= 0,
     options,
     connectionState,
     saveState,

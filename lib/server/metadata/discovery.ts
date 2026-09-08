@@ -3,12 +3,10 @@ import type {
   MetadataSearchResult,
   MetadataSearchType,
 } from "@/lib/metadata/types";
-import { getMetadataProvider } from "@/lib/server/metadata";
-import {
-  searchMetadataDiscoveryProvider,
-  supportsMetadataDiscoveryProvider,
-} from "@/lib/server/providers/metadata-adapters";
-import { getEnabledMetadataProviders } from "@/lib/server/providers/metadata-settings";
+import { MusicBrainzPublicProvider } from "./musicbrainz-public";
+import { getIdentitySearchConnection, getSearchEngine } from "../search-settings";
+import { getStoredMetadataProvider } from "../providers/metadata-settings";
+import { searchMetadataDiscoveryProvider } from "../providers/metadata-adapters";
 
 function fromCanonical(result: MetadataSearchResult): DiscoverySearchResult {
   const shared = {
@@ -33,7 +31,7 @@ function fromCanonical(result: MetadataSearchResult): DiscoverySearchResult {
 }
 
 async function searchMusicBrainz(type: MetadataSearchType, query: string) {
-  const provider = getMetadataProvider();
+  const provider = new MusicBrainzPublicProvider(getIdentitySearchConnection());
   const results = type === "artist"
     ? await provider.searchArtists(query)
     : type === "album"
@@ -46,21 +44,27 @@ async function searchMusicBrainz(type: MetadataSearchType, query: string) {
   };
 }
 
-export async function searchDiscovery(type: MetadataSearchType, query: string) {
-  const connection = getEnabledMetadataProviders().find((provider) =>
-    supportsMetadataDiscoveryProvider(provider.key),
-  );
+const MUSICBRAINZ_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (connection) {
-    try {
-      return {
-        provider: connection.key,
-        results: await searchMetadataDiscoveryProvider(connection, type, query),
-      };
-    } catch {
-      // Discovery provider failures fall back to canonical search.
-    }
+export async function searchDiscovery(type: MetadataSearchType, query: string) {
+  let discovery: { provider: string; results: DiscoverySearchResult[] };
+  if (getSearchEngine() === "lastfm") {
+    const connection = getStoredMetadataProvider("lastfm");
+    if (!connection) throw new Error("Search provider is not configured.");
+    discovery = {
+      provider: "lastfm",
+      results: await searchMetadataDiscoveryProvider(connection, type, query),
+    };
+  } else {
+    discovery = await searchMusicBrainz(type, query);
   }
 
-  return searchMusicBrainz(type, query);
+  // Every search engine must supply an ID before a result can reach the UI.
+  return {
+    ...discovery,
+    results: discovery.results.filter((result) =>
+      MUSICBRAINZ_ID_PATTERN.test(result.musicBrainzId ?? ""),
+    ),
+  };
 }

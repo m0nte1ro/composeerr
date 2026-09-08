@@ -6,6 +6,8 @@ import type {
   MetadataArtistResult,
   MetadataSongDetails,
   MetadataSongResult,
+  MetadataSearchType,
+  MetadataSearchResult,
   MetadataTrack,
 } from "@/lib/metadata/types";
 
@@ -15,6 +17,15 @@ import {
   getMusicBrainzHeaders,
   type MusicBrainzConnection,
 } from "@/lib/server/musicbrainz-settings";
+
+export class MusicBrainzHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`MusicBrainz returned HTTP ${status}.`);
+  }
+}
+
+export const MUSICBRAINZ_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const CACHE_TTL_MS =
   15 * 60 * 1000;
@@ -103,6 +114,7 @@ type MusicBrainzMedium = {
 };
 
 type MusicBrainzTrack = {
+  id?: string;
   position?: number;
   number?: string;
 
@@ -535,9 +547,7 @@ async function requestMusicBrainz<T>(
           attempt >=
             MAX_REQUEST_ATTEMPTS
         ) {
-          throw new Error(
-            `MusicBrainz returned HTTP ${response.status}.`,
-          );
+          throw new MusicBrainzHttpError(response.status);
         }
 
         const delay =
@@ -901,6 +911,67 @@ export class MusicBrainzPublicProvider
 
   readonly name =
     "MusicBrainz Public API";
+
+  /** Resolve only compatible entity types, using lookup/browse (never indexed search). */
+  async resolveIdentity(
+    kind: MetadataSearchType,
+    id: string,
+  ): Promise<MetadataSearchResult | null> {
+    if (!MUSICBRAINZ_ID_PATTERN.test(id)) return null;
+    id = id.toLowerCase();
+
+    const lookup = async <T extends { id: string; name?: string; title?: string }>(resource: string, inc?: string) => {
+      try {
+        const entity = await requestMusicBrainz<T>(this.connection, resource, { inc });
+        const label = resource.startsWith("artist/") ? entity.name : entity.title;
+        if (!MUSICBRAINZ_ID_PATTERN.test(entity.id ?? "") || typeof label !== "string" || !label.trim()) {
+          throw new Error("MusicBrainz returned an invalid identity.");
+        }
+        return entity;
+      } catch (error) {
+        if (error instanceof MusicBrainzHttpError && error.status === 404) return null;
+        throw error;
+      }
+    };
+
+    if (kind === "artist") {
+      const artist = await lookup<MusicBrainzArtist>(`artist/${id}`);
+      return artist ? mapArtist(artist) : null;
+    }
+    if (kind === "album") {
+      let group = await lookup<MusicBrainzReleaseGroup>(`release-group/${id}`, "artist-credits");
+      if (!group) {
+        const release = await lookup<MusicBrainzRelease>(`release/${id}`, "release-groups");
+        const groupId = release?.["release-group"]?.id;
+        if (!groupId || !MUSICBRAINZ_ID_PATTERN.test(groupId)) return null;
+        group = await lookup<MusicBrainzReleaseGroup>(`release-group/${groupId}`, "artist-credits");
+      }
+      return group ? mapReleaseGroup(group) : null;
+    }
+
+    let recording = await lookup<MusicBrainzRecording>(`recording/${id}`, "artist-credits");
+    if (!recording) {
+      // Last.fm sometimes supplies the ID of a track on a particular release.
+      // Release browse supports track IDs even on mirrors without indexed search.
+      const response = await requestMusicBrainz<ReleaseBrowseResponse>(this.connection, "release", {
+        track: id, inc: "recordings", limit: 1,
+      });
+      const recordingIds = new Set(
+        (response.releases ?? []).flatMap((release) =>
+          (release.media ?? []).flatMap((medium) =>
+            (medium.tracks ?? [])
+              .filter((track) => track.id?.toLowerCase() === id)
+              .map((track) => track.recording?.id)
+              .filter((recordingId): recordingId is string =>
+                !!recordingId && MUSICBRAINZ_ID_PATTERN.test(recordingId)),
+          ),
+        ),
+      );
+      if (recordingIds.size !== 1) return null;
+      recording = await lookup<MusicBrainzRecording>(`recording/${[...recordingIds][0]}`, "artist-credits");
+    }
+    return recording ? mapRecording(recording) : null;
+  }
 
   async findCanonicalMatches(
     discovery: DiscoverySearchResult,

@@ -13,7 +13,7 @@ import {
   getStoredFanartSettings,
 } from "@/lib/server/providers/artwork-settings";
 import { getProviderCache, setProviderCache } from "@/lib/server/providers/cache";
-import { resolveAudioDbArtwork } from "@/lib/server/providers/metadata-adapters";
+import { lookupLastFmArtist, resolveAudioDbArtwork } from "@/lib/server/providers/metadata-adapters";
 import { getStoredMetadataProvider } from "@/lib/server/providers/metadata-settings";
 import { getRuntimeConnectionKey } from "@/lib/server/providers/runtime-key";
 
@@ -102,4 +102,41 @@ export function resolveArtistArtwork(artist: MetadataArtistResult) {
     });
   }
   return resolveChain(artist, adapters);
+}
+const artistNameRequests = new Map<string, Promise<ArtworkResolution>>();
+
+export async function resolveArtistArtworkByName(name: string): Promise<ArtworkResolution> {
+  const lastfm = getStoredMetadataProvider("lastfm");
+  const fanart = getStoredFanartSettings();
+  const audioDb = getStoredMetadataProvider("theaudiodb");
+  const key = getRuntimeConnectionKey([name.toLowerCase(), lastfm, fanart, audioDb]);
+  const cached = getProviderCache<ArtworkResolution>("artist-name-artwork", key);
+  if (cached) return cached;
+  const pending = artistNameRequests.get(key);
+  if (pending) return pending;
+  const request = (async () => {
+    let result: ArtworkResolution = { url: null, provider: null };
+    const artist: MetadataArtistResult = {
+      kind: "artist", id: "", name, disambiguation: null, type: null,
+      country: null, area: null, beginYear: null, score: 0,
+    };
+    if (lastfm) {
+      try {
+        const info = await lookupLastFmArtist(lastfm, name);
+        if (info?.image) result = { url: info.image, provider: "lastfm" };
+        if (info?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(info.id)) artist.id = info.id;
+      } catch { /* Continue with independent artwork providers. */ }
+    }
+    if (!result.url && artist.id) result = await resolveArtistArtwork(artist);
+    else if (!result.url && audioDb?.enabled) {
+      try {
+        const url = await resolveAudioDbArtwork(audioDb, artist);
+        if (url) result = { url, provider: "theaudiodb" };
+      } catch { /* Artwork is optional. */ }
+    }
+    setProviderCache("artist-name-artwork", key, result, result.url ? ARTWORK_TTL_MS : 60_000);
+    return result;
+  })();
+  artistNameRequests.set(key, request);
+  try { return await request; } finally { artistNameRequests.delete(key); }
 }

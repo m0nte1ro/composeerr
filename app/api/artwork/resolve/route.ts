@@ -8,6 +8,7 @@ import type {
 import {
   resolveAlbumArtwork,
   resolveArtistArtwork,
+  resolveArtistArtworkByName,
 } from "@/lib/server/providers/artwork-resolver";
 
 export const runtime = "nodejs";
@@ -19,6 +20,10 @@ export const GET = withAuth(async function GET(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type");
   const id = request.nextUrl.searchParams.get("id")?.trim() ?? "";
   const name = request.nextUrl.searchParams.get("name")?.trim() ?? "";
+
+  if (type === "artist" && !id && name && name.length <= 300) {
+    return NextResponse.json({ ok: true, artwork: await resolveArtistArtworkByName(name) });
+  }
 
   if ((type !== "album" && type !== "artist") || !UUID_PATTERN.test(id)) {
     return NextResponse.json(

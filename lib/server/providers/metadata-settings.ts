@@ -157,7 +157,7 @@ function getProviderOrder(): MetadataProviderKey[] {
   }
 }
 
-function toPublicProvider(
+export function toPublicProvider(
   provider: StoredMetadataProvider,
   order: number,
 ): PublicMetadataProvider {
@@ -224,7 +224,7 @@ export function getEnabledMetadataProviders(): MetadataProviderConnection[] {
   });
 }
 
-function resolvePayload(
+export function resolvePayload(
   payload: MetadataProviderPayload,
   existing: StoredMetadataProvider | null,
 ): StoredMetadataProvider {
@@ -344,6 +344,8 @@ export function updateMetadataProvider(payload: MetadataProviderPayload) {
 }
 
 export function removeMetadataProvider(key: unknown) {
+  const search = readSetting("search.engine");
+  if (key === "lastfm" && search?.value === "lastfm") throw new MetadataProviderSettingsError("Select MusicBrainz in Search before removing the shared Last.fm credentials. Disable enrichment here to keep using Last.fm search.");
   if (!isMetadataProviderKey(key)) {
     throw new MetadataProviderSettingsError("Choose a valid metadata provider.");
   }

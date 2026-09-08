@@ -5,6 +5,8 @@ export type MusicBrainzAuthMode = "none" | "basic" | "header";
 export type PublicMusicBrainzSettings = {
   available: true;
   customized: boolean;
+  useSearchSettings?: boolean;
+  searchEngine?: "musicbrainz" | "lastfm";
   url: string;
   authMode: MusicBrainzAuthMode;
   username: string;
@@ -15,6 +17,7 @@ export type PublicMusicBrainzSettings = {
 
 export type MusicBrainzSettingsPayload = {
   url: string;
+  useSearchSettings?: boolean;
   authMode: MusicBrainzAuthMode;
   username?: string;
   password?: string;
