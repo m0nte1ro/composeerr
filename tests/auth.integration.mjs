@@ -92,6 +92,10 @@ test("local accounts and protected application APIs", { timeout: 180_000 }, asyn
   const protectedRoutes = [];
 
   try {
+    const manifest = JSON.parse(await readFile(path.join(root, ".next/prerender-manifest.json"), "utf8"));
+    for (const route of ["/login", "/register", "/setup"]) {
+      assert.equal(manifest.routes[route], undefined, `${route} must never be prerendered from build-time setup state`);
+    }
     await start();
     await t.test("all application handlers reject anonymous and forged sessions", async () => {
       for (const file of await routeFiles(path.join(root, "app/api"))) {
@@ -145,6 +149,24 @@ test("local accounts and protected application APIs", { timeout: 180_000 }, asyn
       assert.equal(changed.status, 200);
       const oldCookie = adminCookie; adminCookie = cookieOf(changed);
       assert.equal((await request("/api/auth/session", { cookie: oldCookie })).status, 401);
+    });
+
+    await t.test("completed setup keeps anonymous auth pages dynamic after restart", async () => {
+      async function checkAuthPages() {
+        assert.equal(database.prepare("SELECT value FROM app_settings WHERE key = 'setup.complete'").get().value, "true");
+        assert.equal((await request("/")).headers.get("location"), "/login");
+        assert.equal((await request("/setup")).headers.get("location"), "/");
+        for (const route of ["/login", "/register"]) {
+          const response = await request(route);
+          assert.equal(response.status, 200, `${route} must read the current database`);
+          assert.equal(response.headers.get("location"), null);
+          assert.notEqual(response.headers.get("x-nextjs-cache"), "HIT");
+          assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+        }
+      }
+      await checkAuthPages();
+      await stop(); await start();
+      await checkAuthPages();
     });
 
     await t.test("admin can open registration; accounts can never self-promote", async () => {
