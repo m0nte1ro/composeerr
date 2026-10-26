@@ -3,6 +3,7 @@ name: Build and Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: composeerr-production
@@ -38,6 +39,7 @@ jobs:
           file: ./Dockerfile
           target: production
           platforms: linux/amd64
+          pull: true
           push: true
           tags: |
             ghcr.io/m0nte1ro/composeerr:latest
